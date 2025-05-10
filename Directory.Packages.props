@@ -8,5 +8,6 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.2" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.2" />
     <PackageVersion Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" />
+	<PackageVersion Include="MudBlazor" Version="8.6.0" />
   </ItemGroup>
 </Project>
