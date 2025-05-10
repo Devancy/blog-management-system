@@ -1,12 +1,12 @@
 services:
   blogmanagementsystem.keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: quay.io/keycloak/keycloak:26.2
     container_name: blogmanagementsystem.keycloak
     environment:
       - KEYCLOAK_ADMIN=admin
       - KEYCLOAK_ADMIN_PASSWORD=admin
     ports:
-      - "8080:8080"
+      - "6060:8080"
     command: start-dev
   blogmanagementsystem.db:
     image: postgres:17.2
@@ -26,5 +26,5 @@ services:
       context: .
       dockerfile: BlogManagementSystem.Presentation/Dockerfile
     depends_on:
-      - blogmanagementsystem.keycloak
+#      - blogmanagementsystem.keycloak
       - blogmanagementsystem.db
