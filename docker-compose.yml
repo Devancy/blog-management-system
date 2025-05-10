@@ -10,9 +10,9 @@ services:
     command: start-dev
     volumes:
       - ./.containers/keycloak_data:/opt/keycloak/data
-  blogmanagementsystem.db:
+  blogmanagementsystem.postgres:
     image: postgres:17.2
-    container_name: blogmanagementsystem.db
+    container_name: blogmanagementsystem.postgres
     environment:
       - POSTGRES_DB=BlogManagementSystemDb
       - POSTGRES_USER=postgres
@@ -29,4 +29,4 @@ services:
       dockerfile: BlogManagementSystem.Presentation/Dockerfile
     depends_on:
 #      - blogmanagementsystem.keycloak
-      - blogmanagementsystem.db
+      - blogmanagementsystem.postgres

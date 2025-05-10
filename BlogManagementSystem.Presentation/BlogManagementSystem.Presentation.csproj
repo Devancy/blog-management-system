@@ -10,7 +10,15 @@
 
 
   <ItemGroup>
+    <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" />
     <PackageReference Include="MudBlazor" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\BlogManagementSystem.Application\BlogManagementSystem.Application.csproj" />
+    <ProjectReference Include="..\BlogManagementSystem.Infrastructure\BlogManagementSystem.Infrastructure.csproj" />
   </ItemGroup>
 </Project>
