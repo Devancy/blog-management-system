@@ -1,0 +1,121 @@
+@page "/posts/create"
+@using BlogManagementSystem.Domain.Entities
+@using BlogManagementSystem.Application.Services
+@inject PostService PostService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@rendermode InteractiveServer
+
+<PageTitle>Create Post</PageTitle>
+
+<MudContainer Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Create New Post</MudText>
+        
+        <MudForm @ref="form" Model="@model" @bind-IsValid="@isValid">
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="model.Title" Label="Title" 
+                                Required="true" RequiredError="Title is required"
+                                Counter="100" MaxLength="100" 
+                                OnBlur="@(_ => GenerateSlug(model.Title))" />
+                </MudItem>
+                
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="model.Slug" Label="Slug" 
+                                Required="true" RequiredError="Slug is required"
+                                Counter="100" MaxLength="100" />
+                </MudItem>
+                
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="model.Content" Label="Content" 
+                                Required="true" RequiredError="Content is required"
+                                Lines="10" Counter="50000" MaxLength="50000" />
+                </MudItem>
+                
+                <MudItem xs="12" Class="d-flex justify-space-between">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                              Href="/posts">
+                        Cancel
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                              OnClick="SavePostAsync" Disabled="@(!isValid)">
+                        Save Post
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm form = null!;
+    private PostModel model = new();
+    private bool isValid;
+    
+    private class PostModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+    
+    private void GenerateSlug(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            model.Slug = string.Empty;
+            return;
+        }
+        
+        // Generate a slug from the title
+        model.Slug = value
+            .ToLowerInvariant()
+            .Replace(" ", "-")
+            .Replace("&", "and")
+            .Replace("?", "")
+            .Replace("!", "")
+            .Replace("'", "")
+            .Replace("\"", "")
+            .Replace(".", "")
+            .Replace(",", "")
+            .Replace(":", "")
+            .Replace(";", "")
+            .Replace("(", "")
+            .Replace(")", "")
+            .Replace("[", "")
+            .Replace("]", "")
+            .Replace("{", "")
+            .Replace("}", "");
+    }
+    
+    private async Task SavePostAsync()
+    {
+        try
+        {
+            await form.Validate();
+            
+            if (!isValid)
+            {
+                return;
+            }
+            
+            // In a real app, get the real user ID from authentication
+            string authorId = "demo-user";
+            
+            var post = await PostService.CreatePostAsync(
+                model.Title,
+                model.Slug,
+                model.Content,
+                authorId,
+                CancellationToken.None);
+            
+            Snackbar.Add("Post created successfully", Severity.Success);
+            NavigationManager.NavigateTo($"/posts/details/{post.Id}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error creating post: {ex.Message}", Severity.Error);
+        }
+    }
+} 

@@ -1,10 +1,11 @@
-﻿
-<MudNavMenu>
+﻿<MudNavMenu>
     <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-    <MudNavLink Href="counter" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Counter</MudNavLink>
     
-    <MudNavLink Href="weather" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Weather</MudNavLink>
-
+    <MudNavGroup Title="Posts" Icon="@Icons.Material.Filled.Description" Expanded="true">
+        <MudNavLink Href="posts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Post Management</MudNavLink>
+        <MudNavLink Href="posts/create" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Create Post</MudNavLink>
+    </MudNavGroup>
+    <MudNavLink Href="keycloak" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Lock">Keycloak</MudNavLink>
 </MudNavMenu>
 
 

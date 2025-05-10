@@ -1,0 +1,135 @@
+@page "/posts/edit/{Id:guid}"
+@using BlogManagementSystem.Domain.Entities
+@using BlogManagementSystem.Application.Services
+@inject PostService PostService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@rendermode InteractiveServer
+
+<PageTitle>Edit Post</PageTitle>
+
+<MudContainer Class="mt-4">
+    @if (loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+    }
+    else if (post == null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">Post not found</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/posts">Back to Posts</MudButton>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h4" GutterBottom="true">Edit Post</MudText>
+            
+            <MudForm @ref="form" Model="@model" @bind-IsValid="@isValid">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="model.Title" Label="Title" 
+                                    Required="true" RequiredError="Title is required"
+                                    Counter="100" MaxLength="100" />
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="model.Slug" Label="Slug" 
+                                    Required="true" RequiredError="Slug is required"
+                                    Counter="100" MaxLength="100" />
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="model.Content" Label="Content" 
+                                    Required="true" RequiredError="Content is required"
+                                    Lines="10" Counter="50000" MaxLength="50000" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" Class="d-flex justify-space-between">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                                OnClick="@(() => NavigationManager.NavigateTo($"/posts/details/{Id}"))">
+                            Cancel
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                OnClick="UpdatePostAsync" Disabled="@(!isValid)">
+                            Update Post
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudForm>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+    
+    private Post? post;
+    private PostModel model = new();
+    private MudForm form = null!;
+    private bool isValid;
+    private bool loading = true;
+    
+    private class PostModel
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostAsync();
+    }
+    
+    private async Task LoadPostAsync()
+    {
+        try
+        {
+            loading = true;
+            post = await PostService.GetPostAsync(Id, CancellationToken.None);
+            
+            if (post != null)
+            {
+                // Map to model
+                model.Title = post.Title;
+                model.Slug = post.Slug;
+                model.Content = post.Content;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading post: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+    
+    private async Task UpdatePostAsync()
+    {
+        try
+        {
+            await form.Validate();
+            
+            if (!isValid)
+            {
+                return;
+            }
+            
+            await PostService.UpdatePostAsync(
+                Id,
+                model.Title,
+                model.Slug,
+                model.Content,
+                CancellationToken.None);
+            
+            Snackbar.Add("Post updated successfully", Severity.Success);
+            NavigationManager.NavigateTo($"/posts/details/{Id}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating post: {ex.Message}", Severity.Error);
+        }
+    }
+} 

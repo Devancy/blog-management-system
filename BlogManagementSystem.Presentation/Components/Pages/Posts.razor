@@ -1,0 +1,192 @@
+@page "/posts"
+@using BlogManagementSystem.Domain.Entities
+@using BlogManagementSystem.Application.Services
+@inject PostService PostService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Posts</PageTitle>
+
+<MudContainer Class="mt-4">
+    <MudText Typo="Typo.h3" GutterBottom="true">Blog Posts</MudText>
+    
+    <div class="d-flex gap-2 mb-4">
+        <MudButton Href="/posts/create" Variant="Variant.Filled" Color="Color.Primary">
+            Create New Post
+        </MudButton>
+    </div>
+
+    @if (loading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+    }
+    else if (posts.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">No posts found. Create your first post!</MudAlert>
+    }
+    else
+    {
+        <MudTable Items="@posts" Hover="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Title</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Created</MudTh>
+                <MudTh>Updated</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Title">
+                    <MudLink Href="@($"/posts/details/{context.Id}")">@context.Title</MudLink>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small" T="string">
+                        @context.Status.ToString()
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
+                <MudTd DataLabel="Updated">@(context.UpdatedAt.HasValue ? context.UpdatedAt.Value.ToLocalTime().ToString("g") : "-")</MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => NavigateToEdit(context.Id))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => ConfirmDelete(context))" />
+                    
+                    @if (context.Status == PostStatus.Draft)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Send" Size="Size.Small" Color="Color.Info" 
+                                      OnClick="@(() => ConfirmStatusChange(context, PostStatus.Submitted))" 
+                                      Title="Submit for approval" />
+                    }
+                    @if (context.Status == PostStatus.Submitted)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" 
+                                      OnClick="@(() => ConfirmStatusChange(context, PostStatus.Approved))" 
+                                      Title="Approve" />
+                    }
+                    @if (context.Status == PostStatus.Approved)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Publish" Size="Size.Small" Color="Color.Success" 
+                                      OnClick="@(() => ConfirmStatusChange(context, PostStatus.Published))" 
+                                      Title="Publish" />
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudContainer>
+
+@code {
+    private List<Post> posts = new();
+    private bool loading = true;
+    private DialogOptions dialogOptions = new() { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall };
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostsAsync();
+    }
+    
+    private async Task LoadPostsAsync()
+    {
+        try
+        {
+            loading = true;
+            posts = await PostService.GetAllPostsAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading posts: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+    
+    private void NavigateToEdit(Guid id)
+    {
+        NavigationManager.NavigateTo($"/posts/edit/{id}");
+    }
+    
+    private void NavigateToDetails(Guid id)
+    {
+        NavigationManager.NavigateTo($"/posts/details/{id}");
+    }
+    
+    private async Task ConfirmDelete(Post post)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the post '{post.Title}'? This action cannot be undone.");
+        
+        if (confirmed)
+        {
+            await DeletePostAsync(post);
+        }
+    }
+    
+    private async Task DeletePostAsync(Post post)
+    {
+        try
+        {
+            await PostService.DeletePostAsync(post.Id, CancellationToken.None);
+            Snackbar.Add("Post deleted successfully", Severity.Success);
+            await LoadPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting post: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task ConfirmStatusChange(Post post, PostStatus status)
+    {
+        string statusAction = status switch
+        {
+            PostStatus.Submitted => "submit",
+            PostStatus.Approved => "approve",
+            PostStatus.Published => "publish",
+            _ => "change status of"
+        };
+        
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to {statusAction} the post '{post.Title}'?");
+        
+        if (confirmed)
+        {
+            await ChangePostStatusAsync(post, status);
+        }
+    }
+    
+    private async Task ChangePostStatusAsync(Post post, PostStatus status)
+    {
+        try
+        {
+            switch (status)
+            {
+                case PostStatus.Submitted:
+                    await PostService.SubmitPostAsync(post.Id, CancellationToken.None);
+                    break;
+                case PostStatus.Approved:
+                    await PostService.ApprovePostAsync(post.Id, CancellationToken.None);
+                    break;
+                case PostStatus.Published:
+                    await PostService.PublishPostAsync(post.Id, CancellationToken.None);
+                    break;
+            }
+            
+            Snackbar.Add($"Post status updated to {status}", Severity.Success);
+            await LoadPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating post status: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private Color GetStatusColor(PostStatus status) => status switch
+    {
+        PostStatus.Draft => Color.Default,
+        PostStatus.Submitted => Color.Info,
+        PostStatus.Approved => Color.Warning,
+        PostStatus.Published => Color.Success,
+        _ => Color.Default
+    };
+} 

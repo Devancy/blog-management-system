@@ -4,12 +4,13 @@ using MudBlazor.Services;
 using BlogManagementSystem.Presentation.Components;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
+using MudBlazor;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add MudBlazor services
 builder.Services.AddMudServices();
-
+builder.Services.AddMudMarkdownServices();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -24,6 +25,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options
 // Register repositories
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+
+// Register services
+builder.Services.AddScoped<BlogManagementSystem.Application.Services.PostService>();
 
 var app = builder.Build();
 
@@ -43,11 +47,9 @@ else
 }
 
 app.UseHttpsRedirection();
-
-
+app.UseStaticFiles();
 app.UseAntiforgery();
 
-app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
