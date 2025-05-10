@@ -8,6 +8,8 @@ services:
     ports:
       - "6060:8080"
     command: start-dev
+    volumes:
+      - ./.containers/keycloak_data:/opt/keycloak/data
   blogmanagementsystem.db:
     image: postgres:17.2
     container_name: blogmanagementsystem.db
