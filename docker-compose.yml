@@ -1,0 +1,30 @@
+services:
+  blogmanagementsystem.keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: blogmanagementsystem.keycloak
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      - "8080:8080"
+    command: start-dev
+  blogmanagementsystem.db:
+    image: postgres:17.2
+    container_name: blogmanagementsystem.db
+    environment:
+      - POSTGRES_DB=BlogManagementSystemDb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./.containers/postgres_data:/var/lib/postgresql/data
+  blogmanagementsystem.presentation:
+    image: ${DOCKER_REGISTRY-}blogmanagementsystempresentation
+    container_name: blogmanagementsystem.presentation
+    build:
+      context: .
+      dockerfile: BlogManagementSystem.Presentation/Dockerfile
+    depends_on:
+      - blogmanagementsystem.keycloak
+      - blogmanagementsystem.db
