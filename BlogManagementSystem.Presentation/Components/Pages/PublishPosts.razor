@@ -1,0 +1,140 @@
+@page "/posts/publish"
+@using BlogManagementSystem.Domain.Entities
+@using BlogManagementSystem.Application.Services
+@using Microsoft.AspNetCore.Authorization
+@inject PostService PostService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@attribute [Authorize(Roles = "Admin,Editor")]
+@rendermode InteractiveServer
+
+<PageTitle>Publish Posts</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Approved Posts Ready for Publishing</MudText>
+        
+        <MudGrid>
+            <MudItem xs="12">
+                @if (_isLoading)
+                {
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
+                }
+                else if (_posts.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-3 mb-3">No posts ready for publishing.</MudAlert>
+                }
+                else
+                {
+                    <MudTable Items="@_posts" Hover="true" Striped="true" Filter="new Func<Post, bool>(FilterFunc)" Value="_selectedPost" ValueChanged="@((Post p) => _selectedPost = p)">
+                        <ToolBarContent>
+                            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
+                                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-3"></MudTextField>
+                        </ToolBarContent>
+                        <HeaderContent>
+                            <MudTh>Title</MudTh>
+                            <MudTh>Author</MudTh>
+                            <MudTh>Approved</MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="postItem">
+                            <MudTd DataLabel="Title">
+                                <MudLink Href="@($"/posts/{postItem.Slug}")">@postItem.Title</MudLink>
+                            </MudTd>
+                            <MudTd DataLabel="Author">@postItem.AuthorId.Substring(0, Math.Min(8, postItem.AuthorId.Length))...</MudTd>
+                            <MudTd DataLabel="Approved">@(postItem.UpdatedAt?.ToLocalTime().ToString("g") ?? postItem.CreatedAt.ToLocalTime().ToString("g"))</MudTd>
+                            <MudTd>
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" 
+                                               Href="@($"/posts/{postItem.Slug}")" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Publish" Color="Color.Success" 
+                                               OnClick="@(() => PublishPost(postItem.Id))" 
+                                               Title="Publish" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Color="Color.Warning" 
+                                               OnClick="@(() => ReturnToReview(postItem.Id))" 
+                                               Title="Return to Review" />
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" />
+                        </PagerContent>
+                    </MudTable>
+                }
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<Post> _posts = new();
+    private Post _selectedPost = new();
+    private bool _isLoading = true;
+    private string _searchString = "";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostsAsync();
+    }
+    
+    private async Task LoadPostsAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            // Get all posts and filter for approved posts
+            var allPosts = await PostService.GetAllPostsAsync(CancellationToken.None);
+            _posts = allPosts.Where(p => p.Status == PostStatus.Approved).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading posts: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    
+    private bool FilterFunc(Post post)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+            
+        return post.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               post.Content.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+    }
+    
+    private async Task PublishPost(Guid id)
+    {
+        try
+        {
+            await PostService.PublishPostAsync(id, CancellationToken.None);
+            Snackbar.Add("Post published successfully", Severity.Success);
+            await LoadPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error publishing post: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task ReturnToReview(Guid id)
+    {
+        var post = _posts.FirstOrDefault(p => p.Id == id);
+        if (post == null) return;
+        
+        try
+        {
+            // Return post back to submitted status for review
+            post.Status = PostStatus.Submitted;
+            post.UpdatedAt = DateTime.UtcNow;
+            await PostService.UpdatePostAsync(post.Id, post.Title, post.Slug, post.Content, CancellationToken.None);
+            
+            Snackbar.Add("Post returned to review stage", Severity.Warning);
+            await LoadPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error returning post to review: {ex.Message}", Severity.Error);
+        }
+    }
+} 

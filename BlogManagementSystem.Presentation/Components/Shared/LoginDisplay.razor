@@ -1,0 +1,40 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<AuthorizeView>
+    <Authorized Context="authContext">
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" 
+                Color="Color.Inherit" 
+                Direction="Direction.Bottom" 
+                OffsetY="true">
+            <MudText Typo="Typo.body2" Class="px-4 py-2">
+                <b>@authContext.User.Identity?.Name</b>
+            </MudText>
+            <MudDivider Class="mb-2" />
+            <MudMenuItem Href="keycloak" Icon="@Icons.Material.Filled.Security">Identity</MudMenuItem>
+            <MudMenuItem OnClick="Logout" Icon="@Icons.Material.Filled.Logout">Logout</MudMenuItem>
+        </MudMenu>
+    </Authorized>
+    <NotAuthorized>
+        <a href="/Account/Login?returnUrl=@Uri.EscapeDataString(NavigationManager.Uri)" class="ml-3">
+            <MudButton Color="Color.Primary" 
+                     Variant="Variant.Outlined" 
+                     StartIcon="@Icons.Material.Filled.Login">
+                Login
+            </MudButton>
+        </a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private void Login()
+    {
+        NavigationManager.NavigateTo("Account/Login", true);
+    }
+
+    private void Logout()
+    {
+        NavigationManager.NavigateTo("Account/Logout", true);
+    }
+} 

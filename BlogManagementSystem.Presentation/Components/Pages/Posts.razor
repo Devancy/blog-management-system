@@ -1,85 +1,127 @@
 @page "/posts"
 @using BlogManagementSystem.Domain.Entities
 @using BlogManagementSystem.Application.Services
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
 @inject PostService PostService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
-@inject IJSRuntime JSRuntime
+@attribute [Authorize]
 @rendermode InteractiveServer
 
 <PageTitle>Posts</PageTitle>
 
-<MudContainer Class="mt-4">
-    <MudText Typo="Typo.h3" GutterBottom="true">Blog Posts</MudText>
-    
-    <div class="d-flex gap-2 mb-4">
-        <MudButton Href="/posts/create" Variant="Variant.Filled" Color="Color.Primary">
-            Create New Post
-        </MudButton>
-    </div>
-
-    @if (loading)
-    {
-        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
-    }
-    else if (posts.Count == 0)
-    {
-        <MudAlert Severity="Severity.Info" Class="mt-4">No posts found. Create your first post!</MudAlert>
-    }
-    else
-    {
-        <MudTable Items="@posts" Hover="true" Breakpoint="Breakpoint.Sm">
-            <HeaderContent>
-                <MudTh>Title</MudTh>
-                <MudTh>Status</MudTh>
-                <MudTh>Created</MudTh>
-                <MudTh>Updated</MudTh>
-                <MudTh>Actions</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd DataLabel="Title">
-                    <MudLink Href="@($"/posts/details/{context.Id}")">@context.Title</MudLink>
-                </MudTd>
-                <MudTd DataLabel="Status">
-                    <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small" T="string">
-                        @context.Status.ToString()
-                    </MudChip>
-                </MudTd>
-                <MudTd DataLabel="Created">@context.CreatedAt.ToLocalTime().ToString("g")</MudTd>
-                <MudTd DataLabel="Updated">@(context.UpdatedAt.HasValue ? context.UpdatedAt.Value.ToLocalTime().ToString("g") : "-")</MudTd>
-                <MudTd DataLabel="Actions">
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => NavigateToEdit(context.Id))" />
-                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => ConfirmDelete(context))" />
-                    
-                    @if (context.Status == PostStatus.Draft)
-                    {
-                        <MudIconButton Icon="@Icons.Material.Filled.Send" Size="Size.Small" Color="Color.Info" 
-                                      OnClick="@(() => ConfirmStatusChange(context, PostStatus.Submitted))" 
-                                      Title="Submit for approval" />
-                    }
-                    @if (context.Status == PostStatus.Submitted)
-                    {
-                        <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" 
-                                      OnClick="@(() => ConfirmStatusChange(context, PostStatus.Approved))" 
-                                      Title="Approve" />
-                    }
-                    @if (context.Status == PostStatus.Approved)
-                    {
-                        <MudIconButton Icon="@Icons.Material.Filled.Publish" Size="Size.Small" Color="Color.Success" 
-                                      OnClick="@(() => ConfirmStatusChange(context, PostStatus.Published))" 
-                                      Title="Publish" />
-                    }
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
-    }
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Blog Posts</MudText>
+        
+        <MudGrid>
+            <MudItem xs="12" Class="d-flex justify-space-between align-center">
+                <MudText Typo="Typo.h6">All Posts</MudText>
+                <AuthorizeView Roles="Admin,Author">
+                    <Authorized>
+                        <MudButton Variant="Variant.Filled" 
+                                  Color="Color.Primary" 
+                                  StartIcon="@Icons.Material.Filled.Add"
+                                  Href="/posts/create">
+                            Create Post
+                        </MudButton>
+                    </Authorized>
+                </AuthorizeView>
+            </MudItem>
+            
+            <MudItem xs="12">
+                @if (_isLoading)
+                {
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
+                }
+                else if (_posts == null || !_posts.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Class="mt-3 mb-3">No posts found.</MudAlert>
+                }
+                else
+                {
+                    <MudTable Items="@_posts" Hover="true" Striped="true" Filter="new Func<Post, bool>(FilterFunc)" Value="_selectedPost" ValueChanged="@((Post p) => _selectedPost = p)">
+                        <ToolBarContent>
+                            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
+                                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-3"></MudTextField>
+                        </ToolBarContent>
+                        <HeaderContent>
+                            <MudTh>Title</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Created</MudTh>
+                            <MudTh>Actions</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="postItem">
+                            <MudTd DataLabel="Title">
+                                <MudLink Href="@($"/posts/{postItem.Slug}")">@postItem.Title</MudLink>
+                            </MudTd>
+                            <MudTd DataLabel="Status">
+                                <MudChip T="string" Color="@GetStatusColor(postItem.Status)" Size="Size.Small">
+                                    @postItem.Status.ToString()
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Created">@postItem.CreatedAt.ToLocalTime().ToString("g")</MudTd>
+                            <MudTd>
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" 
+                                               Href="@($"/posts/{postItem.Slug}")" />
+                                
+                                <AuthorizeView Roles="Admin,Author">
+                                    <Authorized Context="authContext">
+                                        @if (CanEdit(postItem, authContext.User))
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" 
+                                                          Href="@($"/posts/edit/{postItem.Id}")" />
+                                            
+                                            @if (postItem.Status == PostStatus.Draft)
+                                            {
+                                                <MudIconButton Icon="@Icons.Material.Filled.Send" Color="Color.Success" 
+                                                              OnClick="@(() => SubmitPost(postItem.Id))" 
+                                                              Title="Submit for Review" />
+                                            }
+                                            
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" 
+                                                          OnClick="@(() => DeletePost(postItem.Id))" />
+                                        }
+                                    </Authorized>
+                                </AuthorizeView>
+                                
+                                <AuthorizeView Roles="Admin,Editor">
+                                    <Authorized Context="editorContext">
+                                        @if (postItem.Status == PostStatus.Submitted)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" 
+                                                          OnClick="@(() => ApprovePost(postItem.Id))" 
+                                                          Title="Approve" />
+                                        }
+                                        
+                                        @if (postItem.Status == PostStatus.Approved)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Publish" Color="Color.Secondary" 
+                                                          OnClick="@(() => PublishPost(postItem.Id))" 
+                                                          Title="Publish" />
+                                        }
+                                    </Authorized>
+                                </AuthorizeView>
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" />
+                        </PagerContent>
+                    </MudTable>
+                }
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
 </MudContainer>
 
 @code {
-    private List<Post> posts = new();
-    private bool loading = true;
-    private DialogOptions dialogOptions = new() { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall };
+    private List<Post>? _posts;
+    private Post _selectedPost = new();
+    private bool _isLoading = true;
+    private string _searchString = "";
     
     protected override async Task OnInitializedAsync()
     {
@@ -90,8 +132,8 @@
     {
         try
         {
-            loading = true;
-            posts = await PostService.GetAllPostsAsync(CancellationToken.None);
+            _isLoading = true;
+            _posts = await PostService.GetAllPostsAsync(CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -99,94 +141,100 @@
         }
         finally
         {
-            loading = false;
+            _isLoading = false;
         }
     }
     
-    private void NavigateToEdit(Guid id)
+    private bool FilterFunc(Post post)
     {
-        NavigationManager.NavigateTo($"/posts/edit/{id}");
-    }
-    
-    private void NavigateToDetails(Guid id)
-    {
-        NavigationManager.NavigateTo($"/posts/details/{id}");
-    }
-    
-    private async Task ConfirmDelete(Post post)
-    {
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the post '{post.Title}'? This action cannot be undone.");
-        
-        if (confirmed)
-        {
-            await DeletePostAsync(post);
-        }
-    }
-    
-    private async Task DeletePostAsync(Post post)
-    {
-        try
-        {
-            await PostService.DeletePostAsync(post.Id, CancellationToken.None);
-            Snackbar.Add("Post deleted successfully", Severity.Success);
-            await LoadPostsAsync();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error deleting post: {ex.Message}", Severity.Error);
-        }
-    }
-    
-    private async Task ConfirmStatusChange(Post post, PostStatus status)
-    {
-        string statusAction = status switch
-        {
-            PostStatus.Submitted => "submit",
-            PostStatus.Approved => "approve",
-            PostStatus.Published => "publish",
-            _ => "change status of"
-        };
-        
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to {statusAction} the post '{post.Title}'?");
-        
-        if (confirmed)
-        {
-            await ChangePostStatusAsync(post, status);
-        }
-    }
-    
-    private async Task ChangePostStatusAsync(Post post, PostStatus status)
-    {
-        try
-        {
-            switch (status)
-            {
-                case PostStatus.Submitted:
-                    await PostService.SubmitPostAsync(post.Id, CancellationToken.None);
-                    break;
-                case PostStatus.Approved:
-                    await PostService.ApprovePostAsync(post.Id, CancellationToken.None);
-                    break;
-                case PostStatus.Published:
-                    await PostService.PublishPostAsync(post.Id, CancellationToken.None);
-                    break;
-            }
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
             
-            Snackbar.Add($"Post status updated to {status}", Severity.Success);
-            await LoadPostsAsync();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Error updating post status: {ex.Message}", Severity.Error);
-        }
+        return post.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+               post.Content.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
     
     private Color GetStatusColor(PostStatus status) => status switch
     {
         PostStatus.Draft => Color.Default,
         PostStatus.Submitted => Color.Info,
-        PostStatus.Approved => Color.Warning,
-        PostStatus.Published => Color.Success,
+        PostStatus.Approved => Color.Success,
+        PostStatus.Published => Color.Primary,
         _ => Color.Default
     };
+    
+    private bool CanEdit(Post post, ClaimsPrincipal user)
+    {
+        // Admin can edit any post
+        if (user.IsInRole("Admin"))
+            return true;
+            
+        // Author can only edit their own posts
+        string userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        return post.AuthorId == userId;
+    }
+    
+    private async Task SubmitPost(Guid id)
+    {
+        try
+        {
+            await PostService.SubmitPostAsync(id, CancellationToken.None);
+            Snackbar.Add("Post submitted for review", Severity.Success);
+            await LoadPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error submitting post: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task ApprovePost(Guid id)
+    {
+        try
+        {
+            await PostService.ApprovePostAsync(id, CancellationToken.None);
+            Snackbar.Add("Post approved", Severity.Success);
+            await LoadPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error approving post: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task PublishPost(Guid id)
+    {
+        try
+        {
+            await PostService.PublishPostAsync(id, CancellationToken.None);
+            Snackbar.Add("Post published", Severity.Success);
+            await LoadPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error publishing post: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task DeletePost(Guid id)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Delete Post",
+            "Are you sure you want to delete this post?",
+            yesText: "Delete", cancelText: "Cancel");
+            
+        if (result == true)
+        {
+            try
+            {
+                await PostService.DeletePostAsync(id, CancellationToken.None);
+                Snackbar.Add("Post deleted", Severity.Success);
+                await LoadPostsAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error deleting post: {ex.Message}", Severity.Error);
+            }
+        }
+    }
 } 

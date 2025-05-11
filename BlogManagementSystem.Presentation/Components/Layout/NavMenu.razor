@@ -1,11 +1,47 @@
-﻿<MudNavMenu>
+﻿@using Microsoft.AspNetCore.Components.Authorization
+
+<MudNavMenu>
     <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
     
-    <MudNavGroup Title="Posts" Icon="@Icons.Material.Filled.Description" Expanded="true">
-        <MudNavLink Href="posts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Post Management</MudNavLink>
-        <MudNavLink Href="posts/create" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Create Post</MudNavLink>
-    </MudNavGroup>
-    <MudNavLink Href="keycloak" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Lock">Keycloak</MudNavLink>
+    <AuthorizeView>
+        <Authorized Context="mainAuthContext">
+            <MudNavLink Href="posts" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Article">Posts</MudNavLink>
+            
+            <AuthorizeView Roles="Admin,Author">
+                <Authorized Context="authorContext">
+                    <MudNavLink Href="posts/create" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Create">
+                        Create Post
+                    </MudNavLink>
+                </Authorized>
+            </AuthorizeView>
+            
+            <AuthorizeView Roles="Admin,Editor">
+                <Authorized Context="editorContext">
+                    <MudNavGroup Title="Manage Posts" Icon="@Icons.Material.Filled.ManageAccounts" Expanded="false">
+                        <MudNavLink Href="posts/review" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.RateReview">
+                            Review Submissions
+                        </MudNavLink>
+                        <MudNavLink Href="posts/publish" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Publish">
+                            Ready to Publish
+                        </MudNavLink>
+                    </MudNavGroup>
+                </Authorized>
+            </AuthorizeView>
+            
+            <AuthorizeView Roles="Admin">
+                <Authorized Context="adminContext">
+                    <MudNavGroup Title="Administration" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
+                        <MudNavLink Href="admin/users" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.People">
+                            Users
+                        </MudNavLink>
+                        <MudNavLink Href="admin/roles" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Security">
+                            Roles
+                        </MudNavLink>
+                    </MudNavGroup>
+                </Authorized>
+            </AuthorizeView>
+        </Authorized>
+    </AuthorizeView>
 </MudNavMenu>
 
 

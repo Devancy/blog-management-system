@@ -22,6 +22,13 @@ public class PostRepository(ApplicationDbContext context) : IPostRepository
 			.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 	}
 
+	public async Task<Post?> GetBySlugAsync(string slug, CancellationToken cancellationToken)
+	{
+		return await context.Posts
+			.Include(p => p.Comments)
+			.FirstOrDefaultAsync(p => p.Slug == slug, cancellationToken);
+	}
+
 	public async Task<List<Post>> GetAllAsync(CancellationToken cancellationToken)
 	{
 		return await context.Posts

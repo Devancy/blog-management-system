@@ -1,121 +1,167 @@
 @page "/posts/create"
 @using BlogManagementSystem.Domain.Entities
 @using BlogManagementSystem.Application.Services
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @inject PostService PostService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+@attribute [Authorize(Roles = "Admin,Author")]
 @rendermode InteractiveServer
 
 <PageTitle>Create Post</PageTitle>
 
-<MudContainer Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
     <MudPaper Class="pa-4">
         <MudText Typo="Typo.h4" GutterBottom="true">Create New Post</MudText>
         
-        <MudForm @ref="form" Model="@model" @bind-IsValid="@isValid">
+        <MudForm @ref="_form" @bind-IsValid="_isValid">
             <MudGrid>
                 <MudItem xs="12">
-                    <MudTextField @bind-Value="model.Title" Label="Title" 
+                    <MudTextField @bind-Value="_title" Label="Title" 
                                 Required="true" RequiredError="Title is required"
-                                Counter="100" MaxLength="100" 
-                                OnBlur="@(_ => GenerateSlug(model.Title))" />
+                                Counter="200" MaxLength="200" 
+                                OnBlur="@(_ => GenerateSlug(_title))" />
                 </MudItem>
                 
                 <MudItem xs="12">
-                    <MudTextField @bind-Value="model.Slug" Label="Slug" 
+                    <MudTextField @bind-Value="_slug" Label="Slug" 
                                 Required="true" RequiredError="Slug is required"
-                                Counter="100" MaxLength="100" />
+                                Counter="200" MaxLength="200"
+                                HelperText="URL-friendly name (auto-generated from title)" />
                 </MudItem>
                 
                 <MudItem xs="12">
-                    <MudTextField @bind-Value="model.Content" Label="Content" 
+                    <MudTextField @bind-Value="_content" Label="Content" 
                                 Required="true" RequiredError="Content is required"
-                                Lines="10" Counter="50000" MaxLength="50000" />
+                                Lines="15" Counter="50000" MaxLength="50000" />
                 </MudItem>
                 
                 <MudItem xs="12" Class="d-flex justify-space-between">
-                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
-                              Href="/posts">
-                        Cancel
-                    </MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                              OnClick="SavePostAsync" Disabled="@(!isValid)">
-                        Save Post
-                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" 
+                              OnClick="GoBack">Cancel</MudButton>
+                    
+                    <div>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+                                 OnClick="SaveDraft" Class="mr-2"
+                                 Disabled="@(!_isValid || _isSaving)">
+                            Save Draft
+                        </MudButton>
+                        
+                        <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                                 OnClick="SaveAndSubmit"
+                                 Disabled="@(!_isValid || _isSaving)">
+                            Save & Submit
+                        </MudButton>
+                    </div>
                 </MudItem>
             </MudGrid>
         </MudForm>
+        
+        @if (_isSaving)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mt-3" />
+        }
     </MudPaper>
 </MudContainer>
 
 @code {
-    private MudForm form = null!;
-    private PostModel model = new();
-    private bool isValid;
+    private string _title = string.Empty;
+    private string _slug = string.Empty;
+    private string _content = string.Empty;
+    private bool _isValid;
+    private bool _isSaving;
+    private MudForm? _form;
     
-    private class PostModel
+    private void GoBack()
     {
-        public string Title { get; set; } = string.Empty;
-        public string Slug { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
+        NavigationManager.NavigateTo("/posts");
     }
     
-    private void GenerateSlug(string? value)
+    private void GenerateSlug(string title)
     {
-        if (string.IsNullOrEmpty(value))
+        if (string.IsNullOrEmpty(title))
         {
-            model.Slug = string.Empty;
+            _slug = string.Empty;
             return;
         }
         
-        // Generate a slug from the title
-        model.Slug = value
-            .ToLowerInvariant()
-            .Replace(" ", "-")
-            .Replace("&", "and")
-            .Replace("?", "")
-            .Replace("!", "")
-            .Replace("'", "")
-            .Replace("\"", "")
-            .Replace(".", "")
-            .Replace(",", "")
-            .Replace(":", "")
-            .Replace(";", "")
-            .Replace("(", "")
-            .Replace(")", "")
-            .Replace("[", "")
-            .Replace("]", "")
-            .Replace("{", "")
-            .Replace("}", "");
+        // Convert to lowercase
+        string slug = title.ToLowerInvariant();
+        
+        // Replace spaces with hyphens
+        slug = slug.Replace(" ", "-");
+        
+        // Remove special characters
+        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\-]", "");
+        
+        // Remove multiple hyphens
+        slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-");
+        
+        // Trim hyphens from start and end
+        slug = slug.Trim('-');
+        
+        _slug = slug;
     }
     
-    private async Task SavePostAsync()
+    private async Task SaveDraft()
     {
+        await SavePost(false);
+    }
+    
+    private async Task SaveAndSubmit()
+    {
+        await SavePost(true);
+    }
+    
+    private async Task SavePost(bool submit)
+    {
+        if (!_isValid)
+        {
+            await _form!.Validate();
+            return;
+        }
+        
         try
         {
-            await form.Validate();
+            _isSaving = true;
             
-            if (!isValid)
+            // Get current user ID
+            var userId = await GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId))
             {
+                Snackbar.Add("Unable to determine current user", Severity.Error);
                 return;
             }
             
-            // In a real app, get the real user ID from authentication
-            string authorId = "demo-user";
+            // Create the post
+            var post = await PostService.CreatePostAsync(_title, _slug, _content, userId, CancellationToken.None);
             
-            var post = await PostService.CreatePostAsync(
-                model.Title,
-                model.Slug,
-                model.Content,
-                authorId,
-                CancellationToken.None);
+            // Submit if requested
+            if (submit && post != null)
+            {
+                await PostService.SubmitPostAsync(post.Id, CancellationToken.None);
+            }
             
-            Snackbar.Add("Post created successfully", Severity.Success);
-            NavigationManager.NavigateTo($"/posts/details/{post.Id}");
+            Snackbar.Add(submit ? "Post created and submitted for review" : "Draft saved", Severity.Success);
+            NavigationManager.NavigateTo("/posts");
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error creating post: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error saving post: {ex.Message}", Severity.Error);
         }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+    
+    private async Task<string> GetCurrentUserId()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        return user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     }
 } 

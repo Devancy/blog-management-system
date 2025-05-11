@@ -1,60 +1,84 @@
 @page "/posts/edit/{Id:guid}"
 @using BlogManagementSystem.Domain.Entities
 @using BlogManagementSystem.Application.Services
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @inject PostService PostService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+@attribute [Authorize(Roles = "Admin,Author")]
 @rendermode InteractiveServer
 
 <PageTitle>Edit Post</PageTitle>
 
-<MudContainer Class="mt-4">
-    @if (loading)
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_isLoading)
     {
-        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-4" />
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
     }
-    else if (post == null)
+    else if (_post == null)
     {
-        <MudAlert Severity="Severity.Error" Class="mb-4">Post not found</MudAlert>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/posts">Back to Posts</MudButton>
+        <MudAlert Severity="Severity.Error">Post not found or you don't have permission to edit it.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoBack" Class="mt-4">Back to Posts</MudButton>
     }
     else
     {
         <MudPaper Class="pa-4">
             <MudText Typo="Typo.h4" GutterBottom="true">Edit Post</MudText>
+            <MudChip T="string" Color="@GetStatusColor(_post.Status)" Size="Size.Medium" Class="mb-4">@_post.Status.ToString()</MudChip>
             
-            <MudForm @ref="form" Model="@model" @bind-IsValid="@isValid">
+            <MudForm @ref="_form" @bind-IsValid="_isValid">
                 <MudGrid>
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="model.Title" Label="Title" 
+                        <MudTextField @bind-Value="_title" Label="Title" 
                                     Required="true" RequiredError="Title is required"
-                                    Counter="100" MaxLength="100" />
+                                    Counter="200" MaxLength="200" 
+                                    OnBlur="@(_ => GenerateSlug(_title))" />
                     </MudItem>
                     
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="model.Slug" Label="Slug" 
+                        <MudTextField @bind-Value="_slug" Label="Slug" 
                                     Required="true" RequiredError="Slug is required"
-                                    Counter="100" MaxLength="100" />
+                                    Counter="200" MaxLength="200"
+                                    HelperText="URL-friendly name" />
                     </MudItem>
                     
                     <MudItem xs="12">
-                        <MudTextField @bind-Value="model.Content" Label="Content" 
+                        <MudTextField @bind-Value="_content" Label="Content" 
                                     Required="true" RequiredError="Content is required"
-                                    Lines="10" Counter="50000" MaxLength="50000" />
+                                    Lines="15" Counter="50000" MaxLength="50000" />
                     </MudItem>
                     
                     <MudItem xs="12" Class="d-flex justify-space-between">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
-                                OnClick="@(() => NavigationManager.NavigateTo($"/posts/details/{Id}"))">
-                            Cancel
-                        </MudButton>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                OnClick="UpdatePostAsync" Disabled="@(!isValid)">
-                            Update Post
-                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" 
+                                  OnClick="GoBack">Cancel</MudButton>
+                        
+                        <div>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+                                     OnClick="SaveChanges" Class="mr-2"
+                                     Disabled="@(!_isValid || _isSaving)">
+                                Save Changes
+                            </MudButton>
+                            
+                            @if (_post.Status == PostStatus.Draft)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Success" 
+                                         OnClick="SaveAndSubmit"
+                                         Disabled="@(!_isValid || _isSaving)">
+                                    Save & Submit
+                                </MudButton>
+                            }
+                        </div>
                     </MudItem>
                 </MudGrid>
             </MudForm>
+            
+            @if (_isSaving)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mt-3" />
+            }
         </MudPaper>
     }
 </MudContainer>
@@ -63,18 +87,14 @@
     [Parameter]
     public Guid Id { get; set; }
     
-    private Post? post;
-    private PostModel model = new();
-    private MudForm form = null!;
-    private bool isValid;
-    private bool loading = true;
-    
-    private class PostModel
-    {
-        public string Title { get; set; } = string.Empty;
-        public string Slug { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
-    }
+    private Post? _post;
+    private string _title = string.Empty;
+    private string _slug = string.Empty;
+    private string _content = string.Empty;
+    private bool _isValid;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private MudForm? _form;
     
     protected override async Task OnInitializedAsync()
     {
@@ -85,15 +105,27 @@
     {
         try
         {
-            loading = true;
-            post = await PostService.GetPostAsync(Id, CancellationToken.None);
+            _isLoading = true;
             
-            if (post != null)
+            // Load post and verify permissions
+            _post = await PostService.GetPostAsync(Id, CancellationToken.None);
+            
+            if (_post != null)
             {
-                // Map to model
-                model.Title = post.Title;
-                model.Slug = post.Slug;
-                model.Content = post.Content;
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+                
+                // Check if user has permission to edit this post
+                if (!user.IsInRole("Admin") && _post.AuthorId != user.FindFirstValue(ClaimTypes.NameIdentifier))
+                {
+                    _post = null; // No permission
+                    return;
+                }
+                
+                // Populate form
+                _title = _post.Title;
+                _slug = _post.Slug;
+                _content = _post.Content;
             }
         }
         catch (Exception ex)
@@ -102,34 +134,99 @@
         }
         finally
         {
-            loading = false;
+            _isLoading = false;
         }
     }
     
-    private async Task UpdatePostAsync()
+    private void GoBack()
     {
+        NavigationManager.NavigateTo("/posts");
+    }
+    
+    private void GenerateSlug(string title)
+    {
+        if (string.IsNullOrEmpty(title))
+        {
+            return;
+        }
+        
+        // Only generate slug if it's empty or unchanged from the original title
+        if (string.IsNullOrEmpty(_slug) || _post?.Title == _post?.Slug)
+        {
+            // Convert to lowercase
+            string slug = title.ToLowerInvariant();
+            
+            // Replace spaces with hyphens
+            slug = slug.Replace(" ", "-");
+            
+            // Remove special characters
+            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"[^a-z0-9\-]", "");
+            
+            // Remove multiple hyphens
+            slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-");
+            
+            // Trim hyphens from start and end
+            slug = slug.Trim('-');
+            
+            _slug = slug;
+        }
+    }
+    
+    private async Task SaveChanges()
+    {
+        await SavePost(false);
+    }
+    
+    private async Task SaveAndSubmit()
+    {
+        await SavePost(true);
+    }
+    
+    private async Task SavePost(bool submit)
+    {
+        if (!_isValid || _post == null)
+        {
+            await _form!.Validate();
+            return;
+        }
+        
         try
         {
-            await form.Validate();
+            _isSaving = true;
             
-            if (!isValid)
+            // Update the post
+            await PostService.UpdatePostAsync(_post.Id, _title, _slug, _content, CancellationToken.None);
+            
+            // Submit if requested and post is in draft
+            if (submit && _post.Status == PostStatus.Draft)
             {
-                return;
+                await PostService.SubmitPostAsync(_post.Id, CancellationToken.None);
+                Snackbar.Add("Post updated and submitted for review", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Post updated successfully", Severity.Success);
             }
             
-            await PostService.UpdatePostAsync(
-                Id,
-                model.Title,
-                model.Slug,
-                model.Content,
-                CancellationToken.None);
-            
-            Snackbar.Add("Post updated successfully", Severity.Success);
-            NavigationManager.NavigateTo($"/posts/details/{Id}");
+            // Navigate back to posts list
+            NavigationManager.NavigateTo("/posts");
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error updating post: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Error saving post: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
         }
     }
+    
+    private Color GetStatusColor(PostStatus status) => status switch
+    {
+        PostStatus.Draft => Color.Default,
+        PostStatus.Submitted => Color.Info,
+        PostStatus.Approved => Color.Success,
+        PostStatus.Published => Color.Primary,
+        _ => Color.Default
+    };
 } 

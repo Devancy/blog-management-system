@@ -31,6 +31,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			.HasMaxLength(200);
 
 		modelBuilder.Entity<Post>()
+			.HasIndex(p => p.Slug)
+			.IsUnique();
+
+		modelBuilder.Entity<Post>()
 			.Property(p => p.AuthorId)
 			.IsRequired();
 

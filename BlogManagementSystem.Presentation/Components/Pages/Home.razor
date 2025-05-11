@@ -2,102 +2,58 @@
 @using BlogManagementSystem.Domain.Entities
 @using BlogManagementSystem.Application.Services
 @inject PostService PostService
-@inject NavigationManager NavigationManager
-@inject ISnackbar Snackbar
 @rendermode InteractiveServer
 
-<PageTitle>Blog Management System</PageTitle>
+<PageTitle>Blog Home</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
-    <MudGrid>
-        <MudItem xs="12" Class="d-flex justify-space-between align-center mb-4">
-            <MudText Typo="Typo.h3">Published Posts</MudText>
-            
-            <MudButton Href="/posts" Variant="Variant.Outlined" Color="Color.Primary" 
-                      StartIcon="@Icons.Material.Filled.Dashboard">
-                Manage Posts
-            </MudButton>
-        </MudItem>
-        
-        @if (loading)
-        {
-            <MudItem xs="12">
-                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
-                <MudText Align="Align.Center" Class="mt-4">Loading published posts...</MudText>
-            </MudItem>
-        }
-        else if (publishedPosts.Count == 0)
-        {
-            <MudItem xs="12">
-                <MudPaper Class="pa-8 mt-4" Elevation="0">
-                    <MudText Typo="Typo.h5" Align="Align.Center">No published posts yet</MudText>
-                    <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-4">
-                        There are no published posts available. 
-                        Please check back later or visit the management section to create and publish content.
-                    </MudText>
-                    <div class="d-flex justify-center mt-4">
-                        <MudButton Href="/posts/create" Variant="Variant.Filled" Color="Color.Primary" 
-                                  StartIcon="@Icons.Material.Filled.Add">
-                            Create a Post
-                        </MudButton>
-                    </div>
-                </MudPaper>
-            </MudItem>
-        }
-        else
-        {
-            <MudItem xs="12">
-                <MudDivider />
-            </MudItem>
-            
-            @foreach (var post in publishedPosts)
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h3" GutterBottom="true">Welcome to the Blog</MudText>
+    
+    @if (_isLoading)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
+    }
+    else if (!_publishedPosts.Any())
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-3 mb-3">No published posts available. Stay tuned!</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var post in _publishedPosts)
             {
-                <MudItem xs="12" md="6" lg="4" Class="pa-2">
-                    <MudCard Elevation="2" Class="h-100 d-flex flex-column">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Elevation="3" Class="mb-4" Style="height: 100%;">
                         <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6" Class="mud-text-truncate">@post.Title</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    Published on @post.UpdatedAt?.ToLocalTime().ToString("MMMM dd, yyyy") 
-                                </MudText>
-                            </CardHeaderContent>
+                            <MudText Typo="Typo.h5">
+                                <MudLink Href="@($"/posts/{post.Slug}")">@post.Title</MudLink>
+                            </MudText>
                         </MudCardHeader>
-                        <MudCardContent Class="flex-grow-1">
-                            @{
-                                string truncatedContent = post.Content.Length > 200 
-                                    ? post.Content.Substring(0, 200) + "..." 
-                                    : post.Content;
-                            }
-                            <MudText Typo="Typo.body2">@truncatedContent</MudText>
+                        <MudCardContent>
+                            <MudText Typo="Typo.body2" Class="mt-3">
+                                @GetPostSummary(post.Content)
+                            </MudText>
                         </MudCardContent>
                         <MudCardActions Class="d-flex justify-space-between">
                             <MudText Typo="Typo.caption">
-                                <MudIcon Icon="@Icons.Material.Filled.Comment" Size="Size.Small" /> 
-                                @post.Comments.Count comment(s)
+                                Published: @post.UpdatedAt?.ToLocalTime().ToString("MMM dd, yyyy") ?? post.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")
                             </MudText>
-                            <MudButton Variant="Variant.Text" Color="Color.Primary" 
-                                     Href="@($"/posts/details/{post.Id}")">
+                            <MudButton Variant="Variant.Text" 
+                                     Color="Color.Primary" 
+                                     Href="@($"/posts/{post.Slug}")">
                                 Read More
                             </MudButton>
                         </MudCardActions>
                     </MudCard>
                 </MudItem>
             }
-            
-            <MudItem xs="12" Class="mt-4">
-                <MudPagination Count="@pageCount" SelectedChanged="PageChanged" Variant="Variant.Outlined" 
-                              Color="Color.Primary" Class="d-flex justify-center" />
-            </MudItem>
-        }
-    </MudGrid>
+        </MudGrid>
+    }
 </MudContainer>
 
 @code {
-    private List<Post> publishedPosts = new();
-    private bool loading = true;
-    private int pageSize = 9;
-    private int pageCount = 1;
-    private int currentPage = 1;
+    private List<Post> _publishedPosts = new();
+    private bool _isLoading = true;
     
     protected override async Task OnInitializedAsync()
     {
@@ -108,57 +64,30 @@
     {
         try
         {
-            loading = true;
-            
-            // Get all posts
+            _isLoading = true;
             var allPosts = await PostService.GetAllPostsAsync(CancellationToken.None);
-            
-            // Filter to only published posts
-            var allPublishedPosts = allPosts
+            _publishedPosts = allPosts
                 .Where(p => p.Status == PostStatus.Published)
                 .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
                 .ToList();
-            
-            // Calculate pagination
-            pageCount = (int)Math.Ceiling(allPublishedPosts.Count / (double)pageSize);
-            pageCount = pageCount == 0 ? 1 : pageCount;
-            
-            // Apply pagination
-            publishedPosts = allPublishedPosts
-                .Skip((currentPage - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-            
-            // Load comments for each post
-            foreach (var post in publishedPosts)
-            {
-                try
-                {
-                    post.Comments = await PostService.GetCommentsAsync(post.Id, CancellationToken.None);
-                }
-                catch 
-                {
-                    // If comments can't be loaded, continue with empty collection
-                    post.Comments = new List<Comment>();
-                }
-            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Snackbar.Add($"Error loading published posts: {ex.Message}", Severity.Error);
+            // Handle error if needed
         }
         finally
         {
-            loading = false;
+            _isLoading = false;
         }
     }
     
-    private async Task PageChanged(int page)
+    private string GetPostSummary(string content)
     {
-        if (page != currentPage)
-        {
-            currentPage = page;
-            await LoadPublishedPostsAsync();
-        }
+        // Create a short summary from the content (first 150 characters)
+        if (string.IsNullOrEmpty(content))
+            return string.Empty;
+            
+        var summary = content.Length <= 150 ? content : content.Substring(0, 147) + "...";
+        return summary;
     }
 }

@@ -7,6 +7,9 @@ public class PostService(IPostRepository postRepository, ICommentRepository comm
 {
     public async Task<Post> CreatePostAsync(string title, string slug, string content, string authorId, CancellationToken cancellationToken)
     {
+        // Ensure slug is unique
+        slug = await EnsureUniqueSlugAsync(slug, null, cancellationToken);
+        
         var post = new Post
         {
             Title = title,
@@ -24,6 +27,11 @@ public class PostService(IPostRepository postRepository, ICommentRepository comm
         return await postRepository.GetByIdAsync(id, cancellationToken);
     }
 
+    public async Task<Post?> GetPostBySlugAsync(string slug, CancellationToken cancellationToken)
+    {
+        return await postRepository.GetBySlugAsync(slug, cancellationToken);
+    }
+
     public async Task<List<Post>> GetAllPostsAsync(CancellationToken cancellationToken)
     {
         return await postRepository.GetAllAsync(cancellationToken);
@@ -34,8 +42,9 @@ public class PostService(IPostRepository postRepository, ICommentRepository comm
         var post = await postRepository.GetByIdAsync(id, cancellationToken);
         if (post == null) throw new Exception("Post not found");
 
+        // Ensure slug is unique but allow keeping the same slug for this post
         post.Title = title;
-        post.Slug = slug;
+        post.Slug = await EnsureUniqueSlugAsync(slug, id, cancellationToken);
         post.Content = content;
         post.UpdatedAt = DateTime.UtcNow;
 
@@ -105,5 +114,34 @@ public class PostService(IPostRepository postRepository, ICommentRepository comm
         post.Status = PostStatus.Published;
         post.UpdatedAt = DateTime.UtcNow;
         await postRepository.UpdateAsync(post, cancellationToken);
+    }
+    
+    // Helper methods
+    
+    private async Task<string> EnsureUniqueSlugAsync(string slug, Guid? excludePostId, CancellationToken cancellationToken)
+    {
+        var baseSlug = slug;
+        var counter = 2;
+        var isUnique = false;
+        
+        // Check if slug is unique
+        while (!isUnique)
+        {
+            var existingPost = await postRepository.GetBySlugAsync(slug, cancellationToken);
+            
+            // If no post with this slug exists, or the only post with this slug is the one being updated
+            if (existingPost == null || (excludePostId.HasValue && existingPost.Id == excludePostId.Value))
+            {
+                isUnique = true;
+            }
+            else
+            {
+                // Append a counter to make the slug unique
+                slug = $"{baseSlug}-{counter}";
+                counter++;
+            }
+        }
+        
+        return slug;
     }
 }
