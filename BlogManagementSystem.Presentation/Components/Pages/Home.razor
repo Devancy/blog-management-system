@@ -7,7 +7,7 @@
 <PageTitle>Blog Home</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudText Typo="Typo.h3" GutterBottom="true">Welcome to the Blog</MudText>
+    <MudText Typo="Typo.h3" GutterBottom="true">Your news feed</MudText>
     
     @if (_isLoading)
     {
@@ -36,7 +36,7 @@
                         </MudCardContent>
                         <MudCardActions Class="d-flex justify-space-between">
                             <MudText Typo="Typo.caption">
-                                Published: @post.UpdatedAt?.ToLocalTime().ToString("MMM dd, yyyy") ?? post.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")
+                                Published: @(post.UpdatedAt?.ToLocalTime().ToString("MMM dd, yyyy") ?? post.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy"))
                             </MudText>
                             <MudButton Variant="Variant.Text" 
                                      Color="Color.Primary" 

@@ -8,7 +8,6 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthStateProvider
-@attribute [Authorize]
 @rendermode InteractiveServer
 
 <PageTitle>Post Details</PageTitle>
@@ -98,25 +97,41 @@
         
         <MudText Typo="Typo.h5" Class="mb-4">Comments (@_comments.Count)</MudText>
         
-        <MudPaper Class="pa-4 mb-4">
-            <MudTextField @bind-Value="_newComment" Label="Add a comment" 
-                        Lines="3" Counter="1000" MaxLength="1000" 
-                        Class="mb-2" />
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" 
-                     OnClick="AddComment"
-                     Disabled="@(string.IsNullOrWhiteSpace(_newComment) || _isAddingComment)">
-                Add Comment
-            </MudButton>
-            
-            @if (_isAddingComment)
-            {
-                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mt-2" />
-            }
-        </MudPaper>
+        <AuthorizeView>
+            <Authorized>
+                <MudPaper Class="pa-4 mb-4">
+                    <MudTextField @bind-Value="_newComment" Label="Add a comment" 
+                                Lines="3" Counter="1000" MaxLength="1000" 
+                                Class="mb-2" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+                             OnClick="AddComment"
+                             Disabled="@(string.IsNullOrWhiteSpace(_newComment) || _isAddingComment)">
+                        Add Comment
+                    </MudButton>
+                    
+                    @if (_isAddingComment)
+                    {
+                        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mt-2" />
+                    }
+                </MudPaper>
+            </Authorized>
+            <NotAuthorized>
+                <MudAlert Severity="Severity.Info" Class="mb-4">
+                    Please <MudLink Href="/login">login</MudLink> to add comments.
+                </MudAlert>
+            </NotAuthorized>
+        </AuthorizeView>
         
         @if (!_comments.Any())
         {
-            <MudAlert Severity="Severity.Info">No comments yet. Be the first to comment!</MudAlert>
+            <AuthorizeView>
+                <Authorized>
+                    <MudAlert Severity="Severity.Info">No comments yet. Be the first to comment!</MudAlert>
+                </Authorized>
+                <NotAuthorized>
+                    <MudAlert Severity="Severity.Info">No comments yet. <MudLink Href="/login">Login</MudLink> to be the first to comment!</MudAlert>
+                </NotAuthorized>
+            </AuthorizeView>
         }
         else
         {
@@ -135,15 +150,19 @@
                             </div>
                             <MudText Typo="Typo.body2" Class="mt-2">@comment.Content</MudText>
                             
-                            @if (_currentUserId == comment.UserId || _isAdmin)
-                            {
-                                <div class="d-flex justify-end mt-2">
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" 
-                                                Size="Size.Small" 
-                                                Color="Color.Error" 
-                                                OnClick="@(() => DeleteComment(comment.Id))" />
-                                </div>
-                            }
+                            <AuthorizeView>
+                                <Authorized Context="AuthContext">
+                                    @if (_currentUserId == comment.UserId || _isAdmin)
+                                    {
+                                        <div class="d-flex justify-end mt-2">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                                        Size="Size.Small" 
+                                                        Color="Color.Error" 
+                                                        OnClick="@(() => DeleteComment(comment.Id))" />
+                                        </div>
+                                    }
+                                </Authorized>
+                            </AuthorizeView>
                         </MudPaper>
                     </MudListItem>
                 }
@@ -174,8 +193,17 @@
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
-        _currentUserId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-        _isAdmin = user.IsInRole("Admin");
+        
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            _currentUserId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            _isAdmin = user.IsInRole("Admin");
+        }
+        else
+        {
+            _currentUserId = string.Empty;
+            _isAdmin = false;
+        }
     }
     
     private async Task LoadPostAsync()
@@ -189,6 +217,23 @@
             
             if (_post != null)
             {
+                // Check if user is a Reader and trying to access non-published post
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+                
+                bool isReader = user.IsInRole("Reader");
+                bool isAdmin = user.IsInRole("Admin");
+                bool isAuthor = user.IsInRole("Author");
+                bool isEditor = user.IsInRole("Editor");
+                
+                // If user is only a Reader and post is not published, redirect to posts list
+                if (isReader && !isAdmin && !isAuthor && !isEditor && _post.Status != PostStatus.Published && _post.Status != PostStatus.Approved)
+                {
+                    NavigationManager.NavigateTo("/posts");
+                    Snackbar.Add("You don't have permission to view this post", Severity.Warning);
+                    return;
+                }
+                
                 // Load comments
                 _comments = await PostService.GetCommentsAsync(_post.Id, CancellationToken.None);
             }
@@ -212,6 +257,13 @@
     {
         if (string.IsNullOrWhiteSpace(_newComment) || _post == null)
             return;
+        
+        // Check if user is authenticated
+        if (string.IsNullOrEmpty(_currentUserId))
+        {
+            Snackbar.Add("You must be logged in to add comments", Severity.Warning);
+            return;
+        }
             
         try
         {
@@ -240,6 +292,13 @@
     
     private async Task DeleteComment(Guid commentId)
     {
+        // Check if user is authenticated
+        if (string.IsNullOrEmpty(_currentUserId))
+        {
+            Snackbar.Add("You must be logged in to delete comments", Severity.Warning);
+            return;
+        }
+        
         try
         {
             await PostService.DeleteCommentAsync(commentId, CancellationToken.None);
