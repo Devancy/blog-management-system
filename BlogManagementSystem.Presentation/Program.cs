@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Refit;
+using BlogManagementSystem.Presentation.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -229,6 +230,9 @@ app.UseStaticFiles();
 // Add authentication middleware
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Add custom authentication middleware for handling redirects
+app.UseAuthenticationMiddleware();
 
 app.UseAntiforgery();
 

@@ -22,11 +22,12 @@
                         Hello, @GetUserDisplayName(context.User)
                     </MudText>
                     <MudDivider />
-                    <MudMenuItem OnClick="Logout">Logout</MudMenuItem>
+                    <MudMenuItem Href="/Account/Profile" Icon="@Icons.Material.Filled.AccountCircle">Profile</MudMenuItem>
+                    <MudMenuItem OnClick="@Logout" Icon="@Icons.Material.Filled.Logout">Logout</MudMenuItem>
                 </MudMenu>
             </Authorized>
             <NotAuthorized>
-                <MudButton Color="Color.Inherit" OnClick="Login">Login</MudButton>
+                <MudIconButton Icon="@Icons.Material.Rounded.Login" Color="Color.Inherit" OnClick="@Login" />
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
@@ -74,12 +75,12 @@
     
     private void Login()
     {
-        NavigationManager.NavigateTo("/login", true);
+        NavigationManager.NavigateTo("/Account/Login", true);
     }
     
     private void Logout()
     {
-        NavigationManager.NavigateTo("/logout", true);
+        NavigationManager.NavigateTo("/Account/Logout", true);
     }
     
     private string GetUserDisplayName(ClaimsPrincipal user)

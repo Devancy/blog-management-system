@@ -1,0 +1,37 @@
+@{
+    ViewData["Title"] = "Authentication Error";
+    var errorMessage = ViewData["ErrorMessage"] as string ?? "There was an error during the authentication process.";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="m-0">Authentication Error</h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-exclamation-triangle text-warning" style="font-size: 4rem;"></i>
+                    </div>
+                    <h5 class="card-title text-center mb-4">Authentication Failed</h5>
+                    <div class="alert alert-warning">
+                        <p class="mb-0">@errorMessage</p>
+                    </div>
+                    <p class="card-text">
+                        There was a problem authenticating with the identity provider. This could be due to:
+                        <ul>
+                            <li>The Keycloak server is not running or unreachable</li>
+                            <li>Your credentials are invalid or expired</li>
+                            <li>There is a configuration issue with the authentication service</li>
+                        </ul>
+                    </p>
+                    <div class="text-center mt-4">
+                        <a href="/" class="btn btn-primary">Return to Home</a>
+                        <a href="/Account/Login" class="btn btn-success ml-2">Try Again</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 
