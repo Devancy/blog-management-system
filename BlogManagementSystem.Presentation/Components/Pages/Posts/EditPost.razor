@@ -1,7 +1,8 @@
 @page "/posts/edit/{Id:guid}"
 @using BlogManagementSystem.Domain.Entities
 @using BlogManagementSystem.Application.Services
-@using System.Security.Claims
+@using BlogManagementSystem.Application.DTOs
+@using BlogManagementSystem.Application.Common.Security
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @inject PostService PostService
@@ -87,7 +88,7 @@
     [Parameter]
     public Guid Id { get; set; }
     
-    private Post? _post;
+    private PostDto? _post;
     private string _title = string.Empty;
     private string _slug = string.Empty;
     private string _content = string.Empty;
@@ -107,16 +108,13 @@
         {
             _isLoading = true;
             
-            // Load post and verify permissions
-            _post = await PostService.GetPostAsync(Id, CancellationToken.None);
-            
+            _post = await PostService.GetPostDtoAsync(Id, CancellationToken.None);
             if (_post != null)
             {
                 var authState = await AuthStateProvider.GetAuthenticationStateAsync();
                 var user = authState.User;
                 
-                // Check if user has permission to edit this post
-                if (!user.IsInRole("Admin") && _post.AuthorId != user.FindFirstValue(ClaimTypes.NameIdentifier))
+                if (!RolePermissions.CanEditPost(_post, user))
                 {
                     _post = null; // No permission
                     return;
@@ -153,10 +151,8 @@
         // Only generate slug if it's empty or unchanged from the original title
         if (string.IsNullOrEmpty(_slug) || _post?.Title == _post?.Slug)
         {
-            // Convert to lowercase
             string slug = title.ToLowerInvariant();
             
-            // Replace spaces with hyphens
             slug = slug.Replace(" ", "-");
             
             // Remove special characters
@@ -165,7 +161,6 @@
             // Remove multiple hyphens
             slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-");
             
-            // Trim hyphens from start and end
             slug = slug.Trim('-');
             
             _slug = slug;
@@ -194,10 +189,8 @@
         {
             _isSaving = true;
             
-            // Update the post
             await PostService.UpdatePostAsync(_post.Id, _title, _slug, _content, CancellationToken.None);
             
-            // Submit if requested and post is in draft
             if (submit && _post.Status == PostStatus.Draft)
             {
                 await PostService.SubmitPostAsync(_post.Id, CancellationToken.None);
@@ -208,7 +201,6 @@
                 Snackbar.Add("Post updated successfully", Severity.Success);
             }
             
-            // Navigate back to posts list
             NavigationManager.NavigateTo("/posts");
         }
         catch (Exception ex)
@@ -221,7 +213,7 @@
         }
     }
     
-    private Color GetStatusColor(PostStatus status) => status switch
+    private static Color GetStatusColor(PostStatus status) => status switch
     {
         PostStatus.Draft => Color.Default,
         PostStatus.Submitted => Color.Info,

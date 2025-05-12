@@ -1,8 +1,9 @@
 @page "/posts/{Slug}"
 @using BlogManagementSystem.Domain.Entities
 @using BlogManagementSystem.Application.Services
+@using BlogManagementSystem.Application.DTOs
 @using System.Security.Claims
-@using Microsoft.AspNetCore.Authorization
+@using BlogManagementSystem.Application.Common.Security
 @using Microsoft.AspNetCore.Components.Authorization
 @inject PostService PostService
 @inject NavigationManager NavigationManager
@@ -30,6 +31,7 @@
                     <div>
                         <MudText Typo="Typo.h4">@_post.Title</MudText>
                         <MudText Typo="Typo.subtitle1" Class="mt-1 mb-3">
+                            By @(!string.IsNullOrEmpty(_post.AuthorName) ? _post.AuthorName : "Unknown") | 
                             Created: @_post.CreatedAt.ToLocalTime().ToString("f")
                             @if (_post.UpdatedAt.HasValue)
                             {
@@ -45,7 +47,7 @@
                         
                         <AuthorizeView Roles="Admin,Author">
                             <Authorized Context="AuthContext">
-                                @if (CanEdit(_post, AuthContext.User))
+                                @if (RolePermissions.CanEditPost(_post, AuthContext.User))
                                 {
                                     <MudTooltip Text="Edit Post">
                                         <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" 
@@ -95,7 +97,7 @@
         
         <MudDivider Class="my-4" />
         
-        <MudText Typo="Typo.h5" Class="mb-4">Comments (@_comments.Count)</MudText>
+        <MudText Typo="Typo.h5" Class="mb-4">Comments (@_post.Comments.Count)</MudText>
         
         <AuthorizeView>
             <Authorized>
@@ -122,7 +124,7 @@
             </NotAuthorized>
         </AuthorizeView>
         
-        @if (!_comments.Any())
+        @if (!_post.Comments.Any())
         {
             <AuthorizeView>
                 <Authorized>
@@ -135,14 +137,21 @@
         }
         else
         {
-            <MudList T="Comment" Clickable="false" Dense="false" DisablePadding="true">
-                @foreach (var comment in _comments.OrderByDescending(c => c.CreatedAt))
+            <MudList T="CommentDto" Clickable="false" Dense="false" DisablePadding="true">
+                @foreach (var comment in _post.Comments.OrderByDescending(c => c.CreatedAt))
                 {
-                    <MudListItem T="Comment" Class="pa-0">
+                    <MudListItem T="CommentDto" Class="pa-0">
                         <MudPaper Class="pa-3 mb-2" Elevation="2">
                             <div class="d-flex justify-space-between">
                                 <MudText Typo="Typo.subtitle2">
-                                    User: @comment.UserId.Substring(0, Math.Min(8, comment.UserId.Length))...
+                                    @if (!string.IsNullOrEmpty(comment.UserName))
+                                    {
+                                        @comment.UserName
+                                    }
+                                    else
+                                    {
+                                        <span>User: @comment.UserId.Substring(0, Math.Min(8, comment.UserId.Length))...</span>
+                                    }
                                 </MudText>
                                 <MudText Typo="Typo.caption">
                                     @comment.CreatedAt.ToLocalTime().ToString("g")
@@ -175,8 +184,7 @@
     [Parameter]
     public string Slug { get; set; } = string.Empty;
     
-    private Post? _post;
-    private List<Comment> _comments = [];
+    private PostDto? _post;
     private string _newComment = string.Empty;
     private bool _isLoading = true;
     private bool _isAddingComment;
@@ -197,7 +205,7 @@
         if (user.Identity?.IsAuthenticated == true)
         {
             _currentUserId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-            _isAdmin = user.IsInRole("Admin");
+            _isAdmin = user.IsInRole(RolePermissions.AdminRole);
         }
         else
         {
@@ -212,30 +220,20 @@
         {
             _isLoading = true;
             
-            // Load post by slug
-            _post = await PostService.GetPostBySlugAsync(Slug, CancellationToken.None);
+            // Load post by slug with author and comment information
+            _post = await PostService.GetPostDtoBySlugAsync(Slug, CancellationToken.None);
             
             if (_post != null)
             {
-                // Check if user is a Reader and trying to access non-published post
                 var authState = await AuthStateProvider.GetAuthenticationStateAsync();
                 var user = authState.User;
                 
-                bool isReader = user.IsInRole("Reader");
-                bool isAdmin = user.IsInRole("Admin");
-                bool isAuthor = user.IsInRole("Author");
-                bool isEditor = user.IsInRole("Editor");
-                
-                // If user is only a Reader and post is not published, redirect to posts list
-                if (isReader && !isAdmin && !isAuthor && !isEditor && _post.Status != PostStatus.Published && _post.Status != PostStatus.Approved)
+                if (!RolePermissions.IsPostVisibleToUser(_post, user))
                 {
                     NavigationManager.NavigateTo("/posts");
                     Snackbar.Add("You don't have permission to view this post", Severity.Warning);
                     return;
                 }
-                
-                // Load comments
-                _comments = await PostService.GetCommentsAsync(_post.Id, CancellationToken.None);
             }
         }
         catch (Exception ex)
@@ -258,7 +256,6 @@
         if (string.IsNullOrWhiteSpace(_newComment) || _post == null)
             return;
         
-        // Check if user is authenticated
         if (string.IsNullOrEmpty(_currentUserId))
         {
             Snackbar.Add("You must be logged in to add comments", Severity.Warning);
@@ -269,14 +266,11 @@
         {
             _isAddingComment = true;
             
-            // Add new comment
             await PostService.AddCommentAsync(_post.Id, _currentUserId, _newComment, CancellationToken.None);
             
-            // Reset comment field
             _newComment = string.Empty;
             
-            // Reload comments
-            _comments = await PostService.GetCommentsAsync(_post.Id, CancellationToken.None);
+            _post = await PostService.GetPostDtoBySlugAsync(Slug, CancellationToken.None);
             
             Snackbar.Add("Comment added successfully", Severity.Success);
         }
@@ -292,7 +286,6 @@
     
     private async Task DeleteComment(Guid commentId)
     {
-        // Check if user is authenticated
         if (string.IsNullOrEmpty(_currentUserId))
         {
             Snackbar.Add("You must be logged in to delete comments", Severity.Warning);
@@ -303,8 +296,7 @@
         {
             await PostService.DeleteCommentAsync(commentId, CancellationToken.None);
             
-            // Remove from local list 
-            _comments.RemoveAll(c => c.Id == commentId);
+            _post = await PostService.GetPostDtoBySlugAsync(Slug, CancellationToken.None);
             
             Snackbar.Add("Comment deleted", Severity.Success);
         }
@@ -322,9 +314,7 @@
             {
                 await PostService.SubmitPostAsync(_post.Id, CancellationToken.None);
                 
-                // Update local state
-                _post.Status = PostStatus.Submitted;
-                _post.UpdatedAt = DateTime.UtcNow;
+                _post = await PostService.GetPostDtoBySlugAsync(Slug, CancellationToken.None);
                 
                 Snackbar.Add("Post submitted for review", Severity.Success);
             }
@@ -343,9 +333,7 @@
             {
                 await PostService.ApprovePostAsync(_post.Id, CancellationToken.None);
                 
-                // Update local state
-                _post.Status = PostStatus.Approved;
-                _post.UpdatedAt = DateTime.UtcNow;
+                _post = await PostService.GetPostDtoBySlugAsync(Slug, CancellationToken.None);
                 
                 Snackbar.Add("Post approved", Severity.Success);
             }
@@ -364,9 +352,7 @@
             {
                 await PostService.PublishPostAsync(_post.Id, CancellationToken.None);
                 
-                // Update local state
-                _post.Status = PostStatus.Published;
-                _post.UpdatedAt = DateTime.UtcNow;
+                _post = await PostService.GetPostDtoBySlugAsync(Slug, CancellationToken.None);
                 
                 Snackbar.Add("Post published", Severity.Success);
             }
@@ -376,8 +362,8 @@
             Snackbar.Add($"Error publishing post: {ex.Message}", Severity.Error);
         }
     }
-    
-    private Color GetStatusColor(PostStatus status) => status switch
+
+    private static Color GetStatusColor(PostStatus status) => status switch
     {
         PostStatus.Draft => Color.Default,
         PostStatus.Submitted => Color.Info,
@@ -386,18 +372,7 @@
         _ => Color.Default
     };
     
-    private bool CanEdit(Post post, ClaimsPrincipal user)
-    {
-        // Admin can edit any post
-        if (user.IsInRole("Admin"))
-            return true;
-            
-        // Author can only edit their own posts
-        string userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-        return post.AuthorId == userId;
-    }
-    
-    private string ProcessContent(string content)
+    private static string ProcessContent(string content)
     {
         // Convert line breaks to HTML
         return content.Replace(Environment.NewLine, "<br />").Replace("\n", "<br />");

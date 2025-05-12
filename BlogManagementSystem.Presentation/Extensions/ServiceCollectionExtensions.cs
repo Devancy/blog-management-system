@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using BlogManagementSystem.Application.Common.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -155,11 +156,11 @@ public static class ServiceCollectionExtensions
     {
         services.AddAuthorizationBuilder()
             .AddPolicy("RequireAdminRole", policy => 
-                policy.RequireRole("Admin"))
+                policy.RequireRole(RolePermissions.AdminRole))
             .AddPolicy("RequireEditorRole", policy => 
-                policy.RequireRole("Editor"))
+                policy.RequireRole(RolePermissions.EditorRole))
             .AddPolicy("RequireAuthorRole", policy => 
-                policy.RequireRole("Author"));
+                policy.RequireRole(RolePermissions.AuthorRole));
 
         return services;
     }

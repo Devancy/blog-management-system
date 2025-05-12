@@ -1,8 +1,8 @@
+@using BlogManagementSystem.Application.Common.Security
 @using BlogManagementSystem.Application.Interfaces
 @using BlogManagementSystem.Domain.Entities
 @using Microsoft.AspNetCore.Authorization
-@using System.Text.RegularExpressions
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = RolePermissions.AdminRole)]
 @inject IKeycloakService KeycloakService
 @inject ISnackbar Snackbar
 

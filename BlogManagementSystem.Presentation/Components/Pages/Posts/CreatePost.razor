@@ -1,5 +1,4 @@
 @page "/posts/create"
-@using BlogManagementSystem.Domain.Entities
 @using BlogManagementSystem.Application.Services
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Authorization
@@ -88,10 +87,8 @@
             return;
         }
         
-        // Convert to lowercase
         string slug = title.ToLowerInvariant();
         
-        // Replace spaces with hyphens
         slug = slug.Replace(" ", "-");
         
         // Remove special characters
@@ -100,7 +97,6 @@
         // Remove multiple hyphens
         slug = System.Text.RegularExpressions.Regex.Replace(slug, @"-+", "-");
         
-        // Trim hyphens from start and end
         slug = slug.Trim('-');
         
         _slug = slug;
@@ -128,7 +124,6 @@
         {
             _isSaving = true;
             
-            // Get current user ID
             var userId = await GetCurrentUserId();
             if (string.IsNullOrEmpty(userId))
             {
@@ -136,10 +131,8 @@
                 return;
             }
             
-            // Create the post
             var post = await PostService.CreatePostAsync(_title, _slug, _content, userId, CancellationToken.None);
             
-            // Submit if requested
             if (submit && post != null)
             {
                 await PostService.SubmitPostAsync(post.Id, CancellationToken.None);

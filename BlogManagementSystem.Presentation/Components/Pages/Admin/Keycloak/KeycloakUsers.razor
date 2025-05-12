@@ -1,10 +1,10 @@
+@using BlogManagementSystem.Application.Common.Security
 @using BlogManagementSystem.Application.Interfaces
 @using BlogManagementSystem.Domain.Entities
 @using Microsoft.AspNetCore.Authorization
-@using System.Text.RegularExpressions
 @using BlogManagementSystem.Presentation.Components.Dialogs.Keycloak
 @using BlogManagementSystem.Presentation.Components.Shared
-@attribute [Authorize(Roles = "Admin")]
+@attribute [Authorize(Roles = RolePermissions.AdminRole)]
 @inject IKeycloakService KeycloakService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
