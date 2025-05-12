@@ -14,6 +14,9 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["Directory.Packages.props", "."]
 COPY ["BlogManagementSystem.Presentation/BlogManagementSystem.Presentation.csproj", "BlogManagementSystem.Presentation/"]
+COPY ["BlogManagementSystem.Application/BlogManagementSystem.Application.csproj", "BlogManagementSystem.Application/"]
+COPY ["BlogManagementSystem.Domain/BlogManagementSystem.Domain.csproj", "BlogManagementSystem.Domain/"]
+COPY ["BlogManagementSystem.Infrastructure/BlogManagementSystem.Infrastructure.csproj", "BlogManagementSystem.Infrastructure/"]
 RUN dotnet restore "./BlogManagementSystem.Presentation/BlogManagementSystem.Presentation.csproj"
 COPY . .
 WORKDIR "/src/BlogManagementSystem.Presentation"
