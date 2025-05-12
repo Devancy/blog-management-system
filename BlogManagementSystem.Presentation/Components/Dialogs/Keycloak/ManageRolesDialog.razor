@@ -1,0 +1,45 @@
+@using BlogManagementSystem.Domain.Entities
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Manage roles for user <strong>@Username</strong>
+        </MudText>
+        
+        @if (AvailableRoles is { Count: 0 })
+        {
+            <MudAlert Severity="Severity.Info">No roles available</MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="py-4 px-1">
+                @foreach (var role in AvailableRoles)
+                {
+                    <MudCheckBox @bind-Value="@SelectedRoles[role.Name ?? ""]" 
+                                Color="Color.Primary" 
+                                Label="@role.Name"
+                                LabelPlacement="Placement.End" />
+                    <MudText Typo="Typo.caption" Style="margin-left: 32px; margin-bottom: 16px;">
+                        @(role.Description ?? "No description available")
+                    </MudText>
+                }
+            </MudPaper>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Save Changes</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    [Parameter] public string Username { get; set; } = string.Empty;
+    [Parameter] public List<KeycloakRole> AvailableRoles { get; set; } = [];
+    [Parameter] public List<KeycloakRole> UserRoles { get; set; } = [];
+    [Parameter] public Dictionary<string, bool> SelectedRoles { get; set; } = new();
+    
+    private void Submit() => MudDialog.Close(DialogResult.Ok(SelectedRoles));
+    private void Cancel() => MudDialog.Cancel();
+} 

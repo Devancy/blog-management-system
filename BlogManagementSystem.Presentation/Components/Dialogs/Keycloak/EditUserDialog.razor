@@ -1,0 +1,66 @@
+@using BlogManagementSystem.Domain.Entities
+@using System.ComponentModel.DataAnnotations
+@using System.Text.RegularExpressions
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="UserModel.Username" 
+                             Label="Username" 
+                             Required="true" 
+                             RequiredError="Username is required"
+                             HelperText="Enter a unique username" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="UserModel.FirstName" 
+                             Label="First Name" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="UserModel.LastName" 
+                             Label="Last Name" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="UserModel.Email" 
+                             Label="Email" 
+                             Required="true" 
+                             RequiredError="Email is required"
+                             Validation="@(new Func<string, string>(ValidateEmail))"
+                             InputType="InputType.Email" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudSwitch @bind-Value="UserModel.Enabled" Label="User Enabled" Color="Color.Primary" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudSwitch @bind-Value="UserModel.EmailVerified" Label="Email Verified" Color="Color.Primary" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Save Changes</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    [Parameter] public KeycloakUser UserModel { get; set; } = new();
+    
+    // Regular expression for email validation
+    private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
+    
+    private string ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "Email is required";
+        
+        if (!EmailRegex.IsMatch(email))
+            return "Please enter a valid email address";
+            
+        return string.Empty;
+    }
+    
+    private void Submit() => MudDialog.Close(DialogResult.Ok(UserModel));
+    private void Cancel() => MudDialog.Cancel();
+} 

@@ -1,0 +1,139 @@
+@using BlogManagementSystem.Domain.Entities
+@using System.ComponentModel.DataAnnotations
+@using System.Text.RegularExpressions
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="UserModel.Username" 
+                             Label="Username" 
+                             Required="true" 
+                             RequiredError="Username is required"
+                             HelperText="Enter a unique username" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="UserModel.FirstName" 
+                             Label="First Name" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="UserModel.LastName" 
+                             Label="Last Name" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="UserModel.Email" 
+                             Label="Email" 
+                             Required="true"
+                             RequiredError="Email is required"
+                             Validation="@(new Func<string, string>(ValidateEmail))"
+                             InputType="InputType.Email" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudSwitch @bind-Value="UserModel.Enabled" Label="User Enabled" Color="Color.Primary" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudSwitch @bind-Value="UserModel.EmailVerified" Label="Email Verified" Color="Color.Primary" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="NewPassword" 
+                             Label="Password" 
+                             InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                             Required="true"
+                             RequiredError="Password is required"
+                             Validation="@(new Func<string, string>(ValidatePassword))"
+                             Adornment="Adornment.End" 
+                             AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)" 
+                             OnAdornmentClick="() => _showPassword = !_showPassword" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="ConfirmPassword" 
+                             Label="Confirm Password" 
+                             InputType="@(_showConfirmPassword ? InputType.Text : InputType.Password)"
+                             Required="true"
+                             RequiredError="Please confirm password"
+                             Validation="@(new Func<string, string>(ValidateConfirmPassword))"
+                             Adornment="Adornment.End" 
+                             AdornmentIcon="@(_showConfirmPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)" 
+                             OnAdornmentClick="() => _showConfirmPassword = !_showConfirmPassword" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Create</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    [Parameter] public KeycloakUser UserModel { get; set; } = new();
+    [Parameter] public string NewPassword { get; set; } = string.Empty;
+    [Parameter] public string ConfirmPassword { get; set; } = string.Empty;
+    
+    private bool _showPassword = false;
+    private bool _showConfirmPassword = false;
+    
+    // Regular expression for email validation
+    private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
+    
+    private static string ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "Email is required";
+        
+        if (!EmailRegex.IsMatch(email))
+            return "Please enter a valid email address";
+            
+        return string.Empty;
+    }
+
+    private static string ValidatePassword(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+            return "Password is required";
+            
+        if (password.Length < 8)
+            return "Password must be at least 8 characters";
+            
+        // Check for complexity - at least one uppercase, lowercase, and digit
+        bool hasUppercase = password.Any(char.IsUpper);
+        bool hasLowercase = password.Any(char.IsLower);
+        bool hasDigit = password.Any(char.IsDigit);
+        
+        if (!hasUppercase || !hasLowercase || !hasDigit)
+            return "Password must contain at least one uppercase letter, one lowercase letter, and one digit";
+            
+        return string.Empty;
+    }
+
+    private string ValidateConfirmPassword(string confirmPassword)
+    {
+        if (string.IsNullOrWhiteSpace(confirmPassword))
+            return "Confirm password is required";
+            
+        if (NewPassword != confirmPassword)
+            return "Passwords do not match";
+            
+        return string.Empty;
+    }
+    
+    private void Submit()
+    {
+        var result = new CreateUserDialogResult
+        {
+            User = UserModel,
+            Password = NewPassword
+        };
+        
+        MudDialog.Close(DialogResult.Ok(result));
+    }
+    
+    private void Cancel() => MudDialog.Cancel();
+    
+    public class CreateUserDialogResult
+    {
+        public KeycloakUser User { get; set; } = new();
+        public string Password { get; set; } = string.Empty;
+    }
+} 

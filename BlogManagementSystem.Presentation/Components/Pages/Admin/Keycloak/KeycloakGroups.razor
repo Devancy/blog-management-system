@@ -1,0 +1,248 @@
+@using BlogManagementSystem.Application.Interfaces
+@using BlogManagementSystem.Domain.Entities
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.RegularExpressions
+@attribute [Authorize(Roles = "Admin")]
+@inject IKeycloakService KeycloakService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" Class="mb-4">Group Management</MudText>
+
+<MudTextField @bind-Value="_searchString" 
+              Placeholder="Search Groups" 
+              Adornment="Adornment.Start" 
+              AdornmentIcon="@Icons.Material.Filled.Search" 
+              IconSize="Size.Medium" 
+              Class="mb-4">
+</MudTextField>
+
+@if (_groups == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Group Hierarchy</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Style="max-height: 500px; overflow-y: auto;">
+                    @if (!_groups.Any())
+                    {
+                        <MudAlert Severity="Severity.Info">No groups found</MudAlert>
+                    }
+                    else
+                    {
+                        <MudTreeView T="KeycloakGroup" 
+                                    Dense="true" 
+                                    Hover="true" 
+                                    ExpandAll="true">
+                            @foreach (var group in FilteredGroups)
+                            {
+                                <MudTreeViewItem T="KeycloakGroup" 
+                                               @bind-Expanded="group.IsExpanded" 
+                                               Text="@group.Name"
+                                               Value="group"
+                                               OnClick="@(() => GroupSelected(group))">
+                                    @if (group.SubGroups != null && group.SubGroups.Any())
+                                    {
+                                        @foreach (var subGroup in group.SubGroups.Where(FilterGroup))
+                                        {
+                                            <MudTreeViewItem T="KeycloakGroup" 
+                                                          @bind-Expanded="subGroup.IsExpanded" 
+                                                          Text="@subGroup.Name"
+                                                          Value="subGroup"
+                                                          OnClick="@(() => GroupSelected(subGroup))">
+                                                @RenderSubGroups(subGroup)
+                                            </MudTreeViewItem>
+                                        }
+                                    }
+                                </MudTreeViewItem>
+                            }
+                        </MudTreeView>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        
+        <MudItem xs="12" md="7">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            @if (_selectedGroup != null)
+                            {
+                                <span>Group Details: @_selectedGroup.Name</span>
+                            }
+                            else
+                            {
+                                <span>Group Details</span>
+                            }
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    @if (_selectedGroup == null)
+                    {
+                        <MudAlert Severity="Severity.Info">Select a group to view details</MudAlert>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body1"><strong>Path:</strong> @_selectedGroup.Path</MudText>
+                        <MudDivider Class="my-2" />
+                        
+                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Users in this group</MudText>
+                        
+                        @if (_isLoadingUsers)
+                        {
+                            <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+                        }
+                        else if (_usersInGroup is { Count: 0 })
+                        {
+                            <MudAlert Severity="Severity.Info">No users in this group</MudAlert>
+                        }
+                        else
+                        {
+                            <MudList T="KeycloakUser" Dense="true" DisableGutters="true">
+                                @foreach (var user in _usersInGroup)
+                                {
+                                    <MudListItem T="KeycloakUser">
+                                        <MudText Typo="Typo.body1">@user.Username</MudText>
+                                        <MudText Typo="Typo.caption">
+                                            @(string.IsNullOrEmpty(user.Email) ? 
+                                                (string.IsNullOrEmpty(user.FirstName) ? "" : $"{user.FirstName} {user.LastName}") : 
+                                                user.Email)
+                                        </MudText>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        }
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private List<KeycloakGroup>? _groups;
+    private string _searchString = "";
+    private KeycloakGroup? _selectedGroup;
+    private List<KeycloakUser> _usersInGroup = [];
+    private bool _isLoadingUsers = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGroups();
+    }
+
+    private async Task LoadGroups()
+    {
+        try
+        {
+            var allGroups = await KeycloakService.GetGroupsAsync();
+            _groups = allGroups.OrderBy(g => g.Name).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading groups: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private IEnumerable<KeycloakGroup> FilteredGroups => _groups?.Where(g => 
+        FilterGroup(g) && (g.Path?.Count(c => c == '/') <= 1 || g.Path == "/")) ?? Array.Empty<KeycloakGroup>();
+
+    private bool FilterGroup(KeycloakGroup group)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        // Check if the current group matches
+        bool currentMatches = (group.Name?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                              (group.Path?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
+        
+        // Check if any subgroups match
+        bool anySubgroupMatches = false;
+        if (group.SubGroups != null && group.SubGroups.Any())
+        {
+            anySubgroupMatches = group.SubGroups.Any(g => FilterGroup(g));
+        }
+        
+        return currentMatches || anySubgroupMatches;
+    }
+
+    private RenderFragment RenderSubGroups(KeycloakGroup parentGroup) => builder =>
+    {
+        if (parentGroup.SubGroups == null || !parentGroup.SubGroups.Any())
+            return;
+
+        foreach (var subGroup in parentGroup.SubGroups.Where(FilterGroup))
+        {
+            builder.OpenComponent<MudBlazor.MudTreeViewItem<KeycloakGroup>>(0);
+            builder.AddAttribute(1, "Text", subGroup.Name);
+            builder.AddAttribute(2, "Value", subGroup);
+            builder.AddAttribute(3, "Expanded", subGroup.IsExpanded);
+            builder.AddAttribute(4, "ExpandedChanged", EventCallback.Factory.Create<bool>(this, value => subGroup.IsExpanded = value));
+            builder.AddAttribute(5, "OnClick", EventCallback.Factory.Create(this, () => GroupSelected(subGroup)));
+            
+            if (subGroup.SubGroups != null && subGroup.SubGroups.Any())
+            {
+                builder.AddAttribute(6, "ChildContent", RenderSubGroups(subGroup));
+            }
+            
+            builder.CloseComponent();
+        }
+    };
+
+    private async Task GroupSelected(KeycloakGroup? group)
+    {
+        _selectedGroup = group;
+        
+        if (group != null)
+        {
+            await LoadUsersInGroup(group);
+        }
+        else
+        {
+            _usersInGroup.Clear();
+        }
+    }
+
+    private async Task LoadUsersInGroup(KeycloakGroup group)
+    {
+        if (group.Id == null) return;
+        
+        _isLoadingUsers = true;
+        _usersInGroup.Clear();
+        
+        try
+        {
+            var allUsers = await KeycloakService.GetUsersAsync();
+            
+            foreach (var user in allUsers)
+            {
+                if (user.Id == null) continue;
+                
+                var userGroupIds = await KeycloakService.GetUserGroupsAsync(user.Id);
+                
+                if (userGroupIds.Contains(group.Id))
+                {
+                    _usersInGroup.Add(user);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading users in group {group.Name}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoadingUsers = false;
+            StateHasChanged();
+        }
+    }
+} 

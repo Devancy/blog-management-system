@@ -1,0 +1,188 @@
+@using BlogManagementSystem.Application.Interfaces
+@using BlogManagementSystem.Domain.Entities
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject IKeycloakService KeycloakService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" Class="mb-4">Role Management</MudText>
+
+<MudTextField @bind-Value="_searchString" 
+              Placeholder="Search Roles" 
+              Adornment="Adornment.Start" 
+              AdornmentIcon="@Icons.Material.Filled.Search" 
+              IconSize="Size.Medium" 
+              Class="mb-4">
+</MudTextField>
+
+@if (_roles == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Realm Roles</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Style="max-height: 400px; overflow-y: auto;">
+                    <MudList T="KeycloakRole" 
+                           Dense="true" 
+                           Clickable="true"
+                           SelectedValue="_selectedRole"
+                           SelectedValueChanged="RoleSelected">
+                        @foreach (var role in FilteredRoles)
+                        {
+                            <MudListItem T="KeycloakRole" Value="@role">
+                                <MudText Typo="Typo.body1">@role.Name</MudText>
+                                @if (!string.IsNullOrEmpty(role.Description))
+                                {
+                                    <MudText Typo="Typo.caption">@role.Description</MudText>
+                                }
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            @if (_selectedRole != null)
+                            {
+                                <span>Users with role: @_selectedRole.Name</span>
+                            }
+                            else
+                            {
+                                <span>Role Details</span>
+                            }
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Style="max-height: 400px; overflow-y: auto;">
+                    @if (_selectedRole == null)
+                    {
+                        <MudAlert Severity="Severity.Info">Select a role to view details</MudAlert>
+                    }
+                    else if (_isLoadingUsers)
+                    {
+                        <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+                    }
+                    else if (_usersWithRole is  {Count: 0 })
+                    {
+                        <MudAlert Severity="Severity.Info">No users have this role</MudAlert>
+                    }
+                    else
+                    {
+                        <MudList T="KeycloakUser" Dense="true">
+                            @foreach (var user in _usersWithRole)
+                            {
+                                <MudListItem T="KeycloakUser">
+                                    <MudText Typo="Typo.body1">@user.Username</MudText>
+                                    <MudText Typo="Typo.caption">
+                                        @(string.IsNullOrEmpty(user.Email) ? 
+                                            (string.IsNullOrEmpty(user.FirstName) ? "" : $"{user.FirstName} {user.LastName}") : 
+                                            user.Email)
+                                    </MudText>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private List<KeycloakRole>? _roles;
+    private string _searchString = "";
+    private KeycloakRole? _selectedRole;
+    private List<KeycloakUser> _usersWithRole = [];
+    private bool _isLoadingUsers = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRoles();
+    }
+
+    private async Task LoadRoles()
+    {
+        try
+        {
+            var allRoles = await KeycloakService.GetRolesAsync();
+            _roles = allRoles.OrderBy(r => r.Name).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading roles: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private IEnumerable<KeycloakRole> FilteredRoles => _roles?.Where(FilterRoles) ?? Array.Empty<KeycloakRole>();
+
+    private bool FilterRoles(KeycloakRole role)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        return (role.Name?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (role.Description?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private async Task RoleSelected(KeycloakRole? role)
+    {
+        _selectedRole = role;
+        
+        if (role != null)
+        {
+            await LoadUsersWithRole(role);
+        }
+        else
+        {
+            _usersWithRole.Clear();
+        }
+    }
+
+    private async Task LoadUsersWithRole(KeycloakRole role)
+    {
+        if (role.Name == null) return;
+        
+        _isLoadingUsers = true;
+        _usersWithRole.Clear();
+        
+        try
+        {
+            var allUsers = await KeycloakService.GetUsersAsync();
+            
+            // Process each user to check if they have the selected role
+            foreach (var user in allUsers)
+            {
+                if (user.Id == null) continue;
+                
+                var userRoles = await KeycloakService.GetUserRolesAsync(user.Id);
+                
+                if (userRoles.Any(r => r.Name == role.Name))
+                {
+                    _usersWithRole.Add(user);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading users with role {role.Name}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoadingUsers = false;
+            StateHasChanged();
+        }
+    }
+}

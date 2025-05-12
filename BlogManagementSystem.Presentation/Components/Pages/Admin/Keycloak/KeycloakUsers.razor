@@ -1,0 +1,551 @@
+@using BlogManagementSystem.Application.Interfaces
+@using BlogManagementSystem.Domain.Entities
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.RegularExpressions
+@using BlogManagementSystem.Presentation.Components.Dialogs.Keycloak
+@using BlogManagementSystem.Presentation.Components.Shared
+@attribute [Authorize(Roles = "Admin")]
+@inject IKeycloakService KeycloakService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" Class="mb-4">User Management</MudText>
+
+<MudButton Variant="Variant.Filled" 
+           Color="Color.Primary" 
+           StartIcon="@Icons.Material.Filled.Add" 
+           Class="mb-4"
+           OnClick="OpenCreateUserDialog">
+    Create User
+</MudButton>
+
+<MudTextField @bind-Value="_searchString" 
+              Placeholder="Search" 
+              Adornment="Adornment.Start" 
+              AdornmentIcon="@Icons.Material.Filled.Search" 
+              IconSize="Size.Medium" 
+              Class="mb-4">
+</MudTextField>
+
+@if (_users == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_users" 
+              Dense="@true" 
+              Hover="@true" 
+              Striped="@true" 
+              Filter="FilterFunc" 
+              T="KeycloakUser">
+        <HeaderContent>
+            <MudTh>Username</MudTh>
+            <MudTh>First Name</MudTh>
+            <MudTh>Last Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Enabled</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Username">@context.Username</MudTd>
+            <MudTd DataLabel="First Name">@context.FirstName</MudTd>
+            <MudTd DataLabel="Last Name">@context.LastName</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Enabled">
+                <MudChip Color="@(context.Enabled ? Color.Success : Color.Error)"
+                         Size="Size.Small" 
+                         T="string">
+                    @(context.Enabled ? "Active" : "Disabled")
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                    <MudMenuItem OnClick="@(() => OpenEditUserDialog(context))">Edit</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => OpenResetPasswordDialog(context))">Reset Password</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => OpenManageRolesDialog(context))">Manage Roles</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => OpenManageGroupsDialog(context))">Manage Groups</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => ConfirmDeleteUser(context))">Delete</MudMenuItem>
+                </MudMenu>
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private List<KeycloakUser>? _users;
+    private string _searchString = "";
+    private KeycloakUser _userToEdit = new();
+    private KeycloakUser _userToCreate = new();
+    private KeycloakCredential _credentialToReset = new();
+    private string? _newPassword;
+    private string? _confirmPassword;
+    private KeycloakUser? _selectedUser;
+    private List<KeycloakRole> _availableRoles = [];
+    private List<KeycloakRole> _userRoles = [];
+    private List<KeycloakGroup> _availableGroups = [];
+    private List<string> _userGroupIds = [];
+    private Dictionary<string, bool> _selectedRoles = new();
+    private Dictionary<string, bool> _selectedGroups = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            var allUsers = await KeycloakService.GetUsersAsync();
+            _users = allUsers.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading users: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool FilterFunc(KeycloakUser user)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        return (user.Username?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (user.FirstName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (user.LastName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (user.Email?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private async Task OpenCreateUserDialog()
+    {
+        _userToCreate = new KeycloakUser 
+        {
+            Enabled = true,
+            EmailVerified = false
+        };
+        _newPassword = string.Empty;
+        _confirmPassword = string.Empty;
+
+        var parameters = new DialogParameters
+        {
+            ["UserModel"] = _userToCreate,
+            ["NewPassword"] = _newPassword,
+            ["ConfirmPassword"] = _confirmPassword
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<CreateUserDialog>("Create User", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            var dialogData = (CreateUserDialog.CreateUserDialogResult)result.Data!;
+            _userToCreate = dialogData.User;
+            _newPassword = dialogData.Password;
+            
+            await CreateUser();
+        }
+    }
+
+    private async Task CreateUser()
+    {
+        if (string.IsNullOrEmpty(_userToCreate.Username))
+        {
+            Snackbar.Add("Username is required", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_userToCreate.Email))
+        {
+            Snackbar.Add("Email is required", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_newPassword))
+        {
+            Snackbar.Add("Password is required", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            _userToCreate.Attributes ??= new Dictionary<string, List<string>>();
+
+            var result = await KeycloakService.CreateUserAsync(_userToCreate, _newPassword);
+            if (result)
+            {
+                Snackbar.Add("User created successfully", Severity.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                Snackbar.Add("Failed to create user", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error creating user: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenEditUserDialog(KeycloakUser user)
+    {
+        _userToEdit = new KeycloakUser
+        {
+            Id = user.Id,
+            Username = user.Username,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            Email = user.Email,
+            Enabled = user.Enabled,
+            EmailVerified = user.EmailVerified
+        };
+
+        var parameters = new DialogParameters
+        {
+            ["UserModel"] = _userToEdit
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<EditUserDialog>("Edit User", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+        {
+            _userToEdit = (KeycloakUser)result.Data!;
+            await UpdateUser();
+        }
+    }
+
+    private async Task UpdateUser()
+    {
+        if (string.IsNullOrEmpty(_userToEdit.Username))
+        {
+            Snackbar.Add("Username is required", Severity.Error);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_userToEdit.Email))
+        {
+            Snackbar.Add("Email is required", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            if (_userToEdit.Id == null)
+            {
+                Snackbar.Add("User ID is required", Severity.Error);
+                return;
+            }
+
+            var result = await KeycloakService.UpdateUserAsync(_userToEdit.Id, _userToEdit);
+            if (result)
+            {
+                Snackbar.Add("User updated successfully", Severity.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                Snackbar.Add("Failed to update user", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating user: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenResetPasswordDialog(KeycloakUser user)
+    {
+        _selectedUser = user;
+        _credentialToReset = new KeycloakCredential
+        {
+            Type = "password",
+            Temporary = false
+        };
+        _newPassword = string.Empty;
+        _confirmPassword = string.Empty;
+
+        var parameters = new DialogParameters
+        {
+            ["Credential"] = _credentialToReset,
+            ["NewPassword"] = _newPassword,
+            ["ConfirmPassword"] = _confirmPassword
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<ResetPasswordDialog>("Reset Password", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false } && _selectedUser?.Id != null)
+        {
+            var dialogData = (ResetPasswordDialog.ResetPasswordDialogResult)result.Data!;
+            _credentialToReset = dialogData.Credential;
+            await ResetPassword(_selectedUser.Id, _credentialToReset);
+        }
+    }
+
+    private async Task ResetPassword(string userId, KeycloakCredential credential)
+    {
+        try
+        {
+            var result = await KeycloakService.ResetPasswordAsync(userId, credential);
+            if (result)
+            {
+                Snackbar.Add("Password reset successfully", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Failed to reset password", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error resetting password: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenManageRolesDialog(KeycloakUser user)
+    {
+        _selectedUser = user;
+        
+        try
+        {
+            // Load available roles and user's current roles
+            _availableRoles = (await KeycloakService.GetRolesAsync()).ToList();
+            
+            _userRoles = _selectedUser.Id != null ? (await KeycloakService.GetUserRolesAsync(_selectedUser.Id)).ToList() : [];
+            
+            _selectedRoles = new Dictionary<string, bool>();
+            
+            // Mark all roles as unselected initially
+            foreach (var role in _availableRoles)
+            {
+                if (role.Name != null)
+                {
+                    _selectedRoles[role.Name] = false;
+                }
+            }
+            
+            // Mark user's current roles as selected
+            foreach (var role in _userRoles)
+            {
+                if (role.Name != null)
+                {
+                    _selectedRoles[role.Name] = true;
+                }
+            }
+            
+            var parameters = new DialogParameters
+            {
+                ["Username"] = _selectedUser.Username ?? "Unknown user",
+                ["AvailableRoles"] = _availableRoles,
+                ["UserRoles"] = _userRoles,
+                ["SelectedRoles"] = _selectedRoles
+            };
+            
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var dialog = await DialogService.ShowAsync<ManageRolesDialog>("Manage Roles", parameters, options);
+            var result = await dialog.Result;
+            
+            if (result is { Canceled: false } && _selectedUser.Id != null)
+            {
+                var selectedRoles = (Dictionary<string, bool>)result.Data!;
+                await UpdateUserRoles(_selectedUser.Id, selectedRoles);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading roles: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UpdateUserRoles(string userId, Dictionary<string, bool> selectedRoles)
+    {
+        try
+        {
+            var rolesToAdd = new List<string>();
+            var rolesToRemove = new List<string>();
+            
+            foreach (var role in _availableRoles)
+            {
+                if (role.Name == null) continue;
+                
+                bool isSelected = selectedRoles.TryGetValue(role.Name, out bool selected) && selected;
+                bool wasSelected = _userRoles.Any(r => r.Name == role.Name);
+                
+                // If role is selected now but wasn't before, add it
+                if (isSelected && !wasSelected)
+                {
+                    rolesToAdd.Add(role.Name);
+                }
+                // If role was selected before but isn't now, remove it
+                else if (!isSelected && wasSelected)
+                {
+                    rolesToRemove.Add(role.Name);
+                }
+            }
+            
+            // Add new roles
+            if (rolesToAdd.Any())
+            {
+                await KeycloakService.AssignRolesToUserAsync(userId, rolesToAdd);
+            }
+            
+            // Remove unselected roles
+            if (rolesToRemove.Any())
+            {
+                await KeycloakService.RemoveRolesFromUserAsync(userId, rolesToRemove);
+            }
+            
+            Snackbar.Add("User roles updated successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating user roles: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenManageGroupsDialog(KeycloakUser user)
+    {
+        _selectedUser = user;
+        
+        try
+        {
+            _availableGroups = (await KeycloakService.GetGroupsAsync()).ToList();
+            
+            _userGroupIds = _selectedUser.Id != null ? (await KeycloakService.GetUserGroupsAsync(_selectedUser.Id)).ToList() : [];
+            
+            _selectedGroups = new Dictionary<string, bool>();
+            
+            void AddGroupsToSelection(List<KeycloakGroup> groups)
+            {
+                foreach (var group in groups)
+                {
+                    if (group.Id != null)
+                    {
+                        _selectedGroups[group.Id] = false;
+                    }
+                    
+                    if (group.SubGroups != null && group.SubGroups.Any())
+                    {
+                        AddGroupsToSelection(group.SubGroups);
+                    }
+                }
+            }
+            
+            AddGroupsToSelection(_availableGroups);
+            
+            // Mark user's current groups as selected
+            foreach (var groupId in _userGroupIds)
+            {
+                _selectedGroups[groupId] = true;
+            }
+            
+            var parameters = new DialogParameters
+            {
+                ["Username"] = _selectedUser.Username ?? "Unknown user",
+                ["AvailableGroups"] = _availableGroups,
+                ["UserGroupIds"] = _userGroupIds,
+                ["SelectedGroups"] = _selectedGroups
+            };
+            
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var dialog = await DialogService.ShowAsync<ManageGroupsDialog>("Manage Groups", parameters, options);
+            var result = await dialog.Result;
+            
+            if (result is { Canceled: false } && _selectedUser.Id != null)
+            {
+                var selectedGroups = (Dictionary<string, bool>)result.Data!;
+                await UpdateUserGroups(_selectedUser.Id, selectedGroups);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading groups: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task UpdateUserGroups(string userId, Dictionary<string, bool> selectedGroups)
+    {
+        try
+        {
+            var groupsToAdd = new List<string>();
+            var groupsToRemove = new List<string>();
+            
+            foreach (var (groupId, isSelected) in selectedGroups)
+            {
+                var wasSelected = _userGroupIds.Contains(groupId);
+                
+                // If group is selected now but wasn't before, add it
+                if (isSelected && !wasSelected)
+                {
+                    groupsToAdd.Add(groupId);
+                }
+                // If group was selected before but isn't now, remove it
+                else if (!isSelected && wasSelected)
+                {
+                    groupsToRemove.Add(groupId);
+                }
+            }
+            
+            // Add user to new groups
+            if (groupsToAdd.Any())
+            {
+                await KeycloakService.AssignUserToGroupsAsync(userId, groupsToAdd);
+            }
+            
+            // Remove user from unselected groups
+            if (groupsToRemove.Any())
+            {
+                await KeycloakService.RemoveUserFromGroupsAsync(userId, groupsToRemove);
+            }
+            
+            Snackbar.Add("User groups updated successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating user groups: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ConfirmDeleteUser(KeycloakUser user)
+    {
+        var parameters = new DialogParameters
+        {
+            ["ContentText"] = $"Are you sure you want to delete {user.Username}? This action cannot be undone.",
+            ["ButtonText"] = "Delete",
+            ["Color"] = Color.Error
+        };
+
+        var options = new DialogOptions() { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Delete User", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false } && user.Id != null)
+        {
+            try
+            {
+                var success = await KeycloakService.DeleteUserAsync(user.Id);
+                if (success)
+                {
+                    Snackbar.Add("User deleted successfully", Severity.Success);
+                    await LoadUsers();
+                }
+                else
+                {
+                    Snackbar.Add("Failed to delete user", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error deleting user: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

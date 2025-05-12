@@ -1,0 +1,62 @@
+@using BlogManagementSystem.Domain.Entities
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Manage groups for user <strong>@Username</strong>
+        </MudText>
+        
+        @if (AvailableGroups is { Count: 0 })
+        {
+            <MudAlert Severity="Severity.Info">No groups available</MudAlert>
+        }
+        else
+        {
+            <MudPaper Elevation="0" Class="py-4 px-1">
+                @foreach (var group in AvailableGroups)
+                {
+                    <MudCheckBox @bind-Value="@SelectedGroups[group.Id ?? ""]" 
+                                Color="Color.Primary" 
+                                Label="@group.Name" 
+                                LabelPlacement="Placement.End" />
+                    <MudText Typo="Typo.caption" Style="margin-left: 32px; margin-bottom: 16px;">
+                        Path: @(group.Path ?? "Unknown path")
+                    </MudText>
+                    
+                    @if (group.SubGroups != null && group.SubGroups.Any())
+                    {
+                        <div style="margin-left: 32px;">
+                            @foreach (var subGroup in group.SubGroups)
+                            {
+                                <MudCheckBox @bind-Value="@SelectedGroups[subGroup.Id ?? ""]" 
+                                             Color="Color.Primary" 
+                                             Label="@subGroup.Name" 
+                                             T="bool"
+                                             LabelPlacement="Placement.End" />
+                                <MudText Typo="Typo.caption" Style="margin-left: 32px; margin-bottom: 16px;">
+                                    Path: @(subGroup.Path ?? "Unknown path")
+                                </MudText>
+                            }
+                        </div>
+                    }
+                }
+            </MudPaper>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Save Changes</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    [Parameter] public string Username { get; set; } = string.Empty;
+    [Parameter] public List<KeycloakGroup> AvailableGroups { get; set; } = [];
+    [Parameter] public List<string> UserGroupIds { get; set; } = [];
+    [Parameter] public Dictionary<string, bool> SelectedGroups { get; set; } = new();
+    
+    private void Submit() => MudDialog.Close(DialogResult.Ok(SelectedGroups));
+    private void Cancel() => MudDialog.Cancel();
+} 
