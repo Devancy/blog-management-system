@@ -18,12 +18,10 @@ public static class ServiceCollectionExtensions
         .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
         .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
         {
-            // Ensure proper URL formatting for Keycloak
             var authServerUrl = configuration["Keycloak:auth-server-url"]!;
-            authServerUrl = authServerUrl.EndsWith("/") ? authServerUrl : authServerUrl + "/";
+            authServerUrl = authServerUrl.EndsWith('/') ? authServerUrl : authServerUrl + "/";
             options.Authority = authServerUrl + "realms/" + configuration["Keycloak:realm"];
             
-            // Make sure we're using the exact client ID from appsettings.json
             options.ClientId = configuration["Keycloak:resource"]!;
             Console.WriteLine($"Using client ID: {options.ClientId}");
             
@@ -47,7 +45,6 @@ public static class ServiceCollectionExtensions
             options.CallbackPath = "/signin-oidc";
             Console.WriteLine($"Using callback path: {options.CallbackPath}");
             
-            // Audience validation settings - disable for troubleshooting
             options.TokenValidationParameters.ValidateAudience = true;
             options.TokenValidationParameters.ValidateIssuer = true;
             options.TokenValidationParameters.ValidIssuer = options.Authority;

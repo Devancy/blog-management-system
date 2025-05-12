@@ -103,11 +103,11 @@
             <Authorized>
                 <MudPaper Class="pa-4 mb-4">
                     <MudTextField @bind-Value="_newComment" Label="Add a comment" 
-                                Lines="3" Counter="1000" MaxLength="1000" 
-                                Class="mb-2" />
+                                  Lines="3" Counter="1000" MaxLength="1000" 
+                                  Class="mb-2" />
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" 
-                             OnClick="AddComment"
-                             Disabled="@(string.IsNullOrWhiteSpace(_newComment) || _isAddingComment)">
+                               OnClick="AddComment"
+                               Disabled="@(string.IsNullOrWhiteSpace(_newComment) || _isAddingComment)">
                         Add Comment
                     </MudButton>
                     
@@ -118,9 +118,12 @@
                 </MudPaper>
             </Authorized>
             <NotAuthorized>
-                <MudAlert Severity="Severity.Info" Class="mb-4">
-                    Please <MudLink Href="/login">login</MudLink> to add comments.
-                </MudAlert>
+                @if (_post.Comments.Any())
+                {
+                    <MudAlert Severity="Severity.Info" Class="mb-4">
+                        Please <MudLink Href="/Account/Login">login</MudLink> to add comments.
+                    </MudAlert>
+                }
             </NotAuthorized>
         </AuthorizeView>
         
@@ -131,7 +134,7 @@
                     <MudAlert Severity="Severity.Info">No comments yet. Be the first to comment!</MudAlert>
                 </Authorized>
                 <NotAuthorized>
-                    <MudAlert Severity="Severity.Info">No comments yet. <MudLink Href="/login">Login</MudLink> to be the first to comment!</MudAlert>
+                    <MudAlert Severity="Severity.Info">No comments yet. <MudLink Href="/Account/Login">Login</MudLink> to be the first to comment!</MudAlert>
                 </NotAuthorized>
             </AuthorizeView>
         }
