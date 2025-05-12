@@ -1,6 +1,7 @@
 @using BlogManagementSystem.Application.Common.Security
+@using BlogManagementSystem.Application.DTOs
 @using BlogManagementSystem.Application.Interfaces
-@using BlogManagementSystem.Domain.Entities
+@using BlogManagementSystem.Infrastructure.Indentity.Models
 @using Microsoft.AspNetCore.Authorization
 @using BlogManagementSystem.Presentation.Components.Dialogs.Keycloak
 @using BlogManagementSystem.Presentation.Components.Shared
@@ -38,7 +39,7 @@ else
               Hover="@true" 
               Striped="@true" 
               Filter="FilterFunc" 
-              T="KeycloakUser">
+              T="UserDto">
         <HeaderContent>
             <MudTh>Username</MudTh>
             <MudTh>First Name</MudTh>
@@ -76,17 +77,17 @@ else
 }
 
 @code {
-    private List<KeycloakUser>? _users;
+    private List<UserDto>? _users;
     private string _searchString = "";
-    private KeycloakUser _userToEdit = new();
-    private KeycloakUser _userToCreate = new();
-    private KeycloakCredential _credentialToReset = new();
+    private UserDto _userToEdit = new();
+    private UserDto _userToCreate = new();
+    private CredentialDto _credentialToReset = new();
     private string? _newPassword;
     private string? _confirmPassword;
-    private KeycloakUser? _selectedUser;
-    private List<KeycloakRole> _availableRoles = [];
-    private List<KeycloakRole> _userRoles = [];
-    private List<KeycloakGroup> _availableGroups = [];
+    private UserDto? _selectedUser;
+    private List<RoleDto> _availableRoles = [];
+    private List<RoleDto> _userRoles = [];
+    private List<GroupDto> _availableGroups = [];
     private List<string> _userGroupIds = [];
     private Dictionary<string, bool> _selectedRoles = new();
     private Dictionary<string, bool> _selectedGroups = new();
@@ -109,7 +110,7 @@ else
         }
     }
 
-    private bool FilterFunc(KeycloakUser user)
+    private bool FilterFunc(UserDto user)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
@@ -122,7 +123,7 @@ else
 
     private async Task OpenCreateUserDialog()
     {
-        _userToCreate = new KeycloakUser 
+        _userToCreate = new UserDto 
         {
             Enabled = true,
             EmailVerified = false
@@ -173,8 +174,6 @@ else
 
         try
         {
-            _userToCreate.Attributes ??= new Dictionary<string, List<string>>();
-
             var result = await KeycloakService.CreateUserAsync(_userToCreate, _newPassword);
             if (result)
             {
@@ -192,9 +191,9 @@ else
         }
     }
 
-    private async Task OpenEditUserDialog(KeycloakUser user)
+    private async Task OpenEditUserDialog(UserDto user)
     {
-        _userToEdit = new KeycloakUser
+        _userToEdit = new UserDto
         {
             Id = user.Id,
             Username = user.Username,
@@ -216,7 +215,7 @@ else
 
         if (result is { Canceled: false })
         {
-            _userToEdit = (KeycloakUser)result.Data!;
+            _userToEdit = (UserDto)result.Data!;
             await UpdateUser();
         }
     }
@@ -260,10 +259,10 @@ else
         }
     }
 
-    private async Task OpenResetPasswordDialog(KeycloakUser user)
+    private async Task OpenResetPasswordDialog(UserDto user)
     {
         _selectedUser = user;
-        _credentialToReset = new KeycloakCredential
+        _credentialToReset = new CredentialDto
         {
             Type = "password",
             Temporary = false
@@ -290,7 +289,7 @@ else
         }
     }
 
-    private async Task ResetPassword(string userId, KeycloakCredential credential)
+    private async Task ResetPassword(string userId, CredentialDto credential)
     {
         try
         {
@@ -310,7 +309,7 @@ else
         }
     }
 
-    private async Task OpenManageRolesDialog(KeycloakUser user)
+    private async Task OpenManageRolesDialog(UserDto user)
     {
         _selectedUser = user;
         
@@ -411,7 +410,7 @@ else
         }
     }
 
-    private async Task OpenManageGroupsDialog(KeycloakUser user)
+    private async Task OpenManageGroupsDialog(UserDto user)
     {
         _selectedUser = user;
         
@@ -423,7 +422,7 @@ else
             
             _selectedGroups = new Dictionary<string, bool>();
             
-            void AddGroupsToSelection(List<KeycloakGroup> groups)
+            void AddGroupsToSelection(List<GroupDto> groups)
             {
                 foreach (var group in groups)
                 {
@@ -514,7 +513,7 @@ else
         }
     }
 
-    private async Task ConfirmDeleteUser(KeycloakUser user)
+    private async Task ConfirmDeleteUser(UserDto user)
     {
         var parameters = new DialogParameters
         {

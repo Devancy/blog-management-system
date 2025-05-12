@@ -2,6 +2,7 @@ using BlogManagementSystem.Domain.Entities;
 using Refit;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using BlogManagementSystem.Infrastructure.Indentity.Models;
 
 namespace BlogManagementSystem.Infrastructure.Services;
 

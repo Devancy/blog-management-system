@@ -1,6 +1,5 @@
-@using BlogManagementSystem.Domain.Entities
-@using System.ComponentModel.DataAnnotations
 @using System.Text.RegularExpressions
+@using BlogManagementSystem.Application.DTOs
 
 <MudDialog>
     <DialogContent>
@@ -67,7 +66,7 @@
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
     
-    [Parameter] public KeycloakUser UserModel { get; set; } = new();
+    [Parameter] public UserDto UserModel { get; set; } = new();
     [Parameter] public string NewPassword { get; set; } = string.Empty;
     [Parameter] public string ConfirmPassword { get; set; } = string.Empty;
     
@@ -133,7 +132,7 @@
     
     public class CreateUserDialogResult
     {
-        public KeycloakUser User { get; set; } = new();
+        public UserDto User { get; set; } = new();
         public string Password { get; set; } = string.Empty;
     }
 } 

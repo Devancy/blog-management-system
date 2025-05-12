@@ -1,6 +1,5 @@
-@using BlogManagementSystem.Domain.Entities
-@using System.ComponentModel.DataAnnotations
 @using System.Text.RegularExpressions
+@using BlogManagementSystem.Application.DTOs
 
 <MudDialog>
     <DialogContent>
@@ -45,7 +44,7 @@
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
     
-    [Parameter] public KeycloakUser UserModel { get; set; } = new();
+    [Parameter] public UserDto UserModel { get; set; } = new();
     
     // Regular expression for email validation
     private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);

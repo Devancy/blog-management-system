@@ -2,6 +2,9 @@ using BlogManagementSystem.Application.Interfaces;
 using BlogManagementSystem.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using System.Net;
+using BlogManagementSystem.Application.DTOs;
+using BlogManagementSystem.Infrastructure.Indentity.Mapping;
+using BlogManagementSystem.Infrastructure.Indentity.Models;
 
 namespace BlogManagementSystem.Infrastructure.Services;
 
@@ -46,12 +49,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
 
     #region User Management
 
-    public async Task<IEnumerable<KeycloakUser>> GetUsersAsync()
+    public async Task<IEnumerable<UserDto>> GetUsersAsync()
     {
         await EnsureValidTokenAsync();
         try
         {
-            return await keycloakClient.GetUsersAsync(GetAuthToken(), _realm);
+            var keycloakUsers = await keycloakClient.GetUsersAsync(GetAuthToken(), _realm);
+            return keycloakUsers.Select(u => u.ToDto());
         }
         catch (Exception ex)
         {
@@ -59,12 +63,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<KeycloakUser?> GetUserByIdAsync(string userId)
+    public async Task<UserDto?> GetUserByIdAsync(string userId)
     {
         await EnsureValidTokenAsync();
         try
         {
-            return await keycloakClient.GetUserByIdAsync(GetAuthToken(), _realm, userId);
+            var user = await keycloakClient.GetUserByIdAsync(GetAuthToken(), _realm, userId);
+            return user.ToDto();
         }
         catch (Refit.ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -76,13 +81,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<KeycloakUser?> GetUserByUsernameAsync(string username)
+    public async Task<UserDto?> GetUserByUsernameAsync(string username)
     {
         await EnsureValidTokenAsync();
         try
         {
             var users = await keycloakClient.GetUsersByUsernameAsync(GetAuthToken(), _realm, username);
-            return users.FirstOrDefault(u => u.Username == username);
+            return users.FirstOrDefault(u => u.Username == username)?.ToDto();
         }
         catch (Exception ex)
         {
@@ -90,15 +95,12 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<bool> CreateUserAsync(KeycloakUser user, string password)
+    public async Task<bool> CreateUserAsync(UserDto userDto, string password)
     {
         await EnsureValidTokenAsync();
 
-        if (user.Credentials == null)
-        {
-            user.Credentials = new List<KeycloakCredential>();
-        }
-        
+        var user = userDto.ToModel();
+
         user.Credentials.Add(new KeycloakCredential
         {
             Type = "password",
@@ -117,12 +119,12 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<bool> UpdateUserAsync(string userId, KeycloakUser user)
+    public async Task<bool> UpdateUserAsync(string userId, UserDto user)
     {
         await EnsureValidTokenAsync();
         try
         {
-            await keycloakClient.UpdateUserAsync(GetAuthToken(), _realm, userId, user);
+            await keycloakClient.UpdateUserAsync(GetAuthToken(), _realm, userId, user.ToModel());
             return true;
         }
         catch (Exception ex)
@@ -145,12 +147,12 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<bool> ResetPasswordAsync(string userId, KeycloakCredential credential)
+    public async Task<bool> ResetPasswordAsync(string userId, CredentialDto credential)
     {
         await EnsureValidTokenAsync();
         try
         {
-            await keycloakClient.ResetPasswordAsync(GetAuthToken(), _realm, userId, credential);
+            await keycloakClient.ResetPasswordAsync(GetAuthToken(), _realm, userId, credential.ToModel());
             return true;
         }
         catch (Exception ex)
@@ -163,12 +165,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
 
     #region Role Management
 
-    public async Task<IEnumerable<KeycloakRole>> GetRolesAsync()
+    public async Task<IEnumerable<RoleDto>> GetRolesAsync()
     {
         await EnsureValidTokenAsync();
         try
         {
-            return await keycloakClient.GetRolesAsync(GetAuthToken(), _realm);
+            var roles = await keycloakClient.GetRolesAsync(GetAuthToken(), _realm);
+            return roles.Select(r => r.ToDto());
         }
         catch (Exception ex)
         {
@@ -176,12 +179,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<KeycloakRole?> GetRoleByNameAsync(string roleName)
+    public async Task<RoleDto?> GetRoleByNameAsync(string roleName)
     {
         await EnsureValidTokenAsync();
         try
         {
-            return await keycloakClient.GetRoleByNameAsync(GetAuthToken(), _realm, roleName);
+            var role = await keycloakClient.GetRoleByNameAsync(GetAuthToken(), _realm, roleName);
+            return role.ToDto();
         }
         catch (Refit.ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -199,7 +203,8 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         try
         {
             var allRoles = await GetRolesAsync();
-            var rolesToAdd = allRoles.Where(r => roles.Contains(r.Name ?? string.Empty)).ToList();
+            var rolesToAdd = allRoles.Where(r => roles.Contains(r.Name ?? string.Empty))
+                .Select(r => r.ToModel()).ToList();
             
             if (rolesToAdd.Any())
             {
@@ -220,7 +225,8 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         try
         {
             var userRoles = await GetUserRolesAsync(userId);
-            var rolesToRemove = userRoles.Where(r => roles.Contains(r.Name ?? string.Empty)).ToList();
+            var rolesToRemove = userRoles.Where(r => roles.Contains(r.Name ?? string.Empty))
+                .Select(r => r.ToModel()).ToList();
             
             if (rolesToRemove.Any())
             {
@@ -235,12 +241,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<IEnumerable<KeycloakRole>> GetUserRolesAsync(string userId)
+    public async Task<IEnumerable<RoleDto>> GetUserRolesAsync(string userId)
     {
         await EnsureValidTokenAsync();
         try
         {
-            return await keycloakClient.GetUserRealmRolesAsync(GetAuthToken(), _realm, userId);
+            var roles = await keycloakClient.GetUserRealmRolesAsync(GetAuthToken(), _realm, userId);
+            return roles.Select(r => r.ToDto());
         }
         catch (Exception ex)
         {
@@ -252,12 +259,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
 
     #region Group Management
 
-    public async Task<IEnumerable<KeycloakGroup>> GetGroupsAsync()
+    public async Task<IEnumerable<GroupDto>> GetGroupsAsync()
     {
         await EnsureValidTokenAsync();
         try
         {
-            return await keycloakClient.GetGroupsAsync(GetAuthToken(), _realm);
+            var groups = await keycloakClient.GetGroupsAsync(GetAuthToken(), _realm);
+            return groups.Select(g => g.ToDto());
         }
         catch (Exception ex)
         {
@@ -265,12 +273,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<KeycloakGroup?> GetGroupByIdAsync(string groupId)
+    public async Task<GroupDto?> GetGroupByIdAsync(string groupId)
     {
         await EnsureValidTokenAsync();
         try
         {
-            return await keycloakClient.GetGroupByIdAsync(GetAuthToken(), _realm, groupId);
+            var group = await keycloakClient.GetGroupByIdAsync(GetAuthToken(), _realm, groupId);
+            return group.ToDto();
         }
         catch (Refit.ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -282,13 +291,13 @@ public class KeycloakService(IKeycloakAdminClient keycloakClient, IConfiguration
         }
     }
 
-    public async Task<KeycloakGroup?> GetGroupByPathAsync(string groupPath)
+    public async Task<GroupDto?> GetGroupByPathAsync(string groupPath)
     {
         var groups = await GetGroupsAsync();
         return FindGroupByPath(groups, groupPath);
     }
 
-    private KeycloakGroup? FindGroupByPath(IEnumerable<KeycloakGroup> groups, string path)
+    private static GroupDto? FindGroupByPath(IEnumerable<GroupDto> groups, string path)
     {
         foreach (var group in groups)
         {

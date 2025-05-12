@@ -1,9 +1,9 @@
 using BlogManagementSystem.Application.DTOs;
 using BlogManagementSystem.Domain.Entities;
 
-namespace BlogManagementSystem.Application.Extensions;
+namespace BlogManagementSystem.Application.Mapping;
 
-public static class MappingExtensions
+public static class PostCommentMapper
 {
     public static PostDto ToDto(this Post post, 
         string authorName = "", 

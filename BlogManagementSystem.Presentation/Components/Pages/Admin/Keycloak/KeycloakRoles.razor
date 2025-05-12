@@ -1,6 +1,7 @@
 @using BlogManagementSystem.Application.Common.Security
+@using BlogManagementSystem.Application.DTOs
 @using BlogManagementSystem.Application.Interfaces
-@using BlogManagementSystem.Domain.Entities
+@using BlogManagementSystem.Infrastructure.Indentity.Models
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = RolePermissions.AdminRole)]
 @inject IKeycloakService KeycloakService
@@ -31,14 +32,14 @@ else
                     </CardHeaderContent>
                 </MudCardHeader>
                 <MudCardContent Style="max-height: 400px; overflow-y: auto;">
-                    <MudList T="KeycloakRole" 
+                    <MudList T="RoleDto" 
                            Dense="true" 
                            Clickable="true"
                            SelectedValue="_selectedRole"
                            SelectedValueChanged="RoleSelected">
                         @foreach (var role in FilteredRoles)
                         {
-                            <MudListItem T="KeycloakRole" Value="@role">
+                            <MudListItem T="RoleDto" Value="@role">
                                 <MudText Typo="Typo.body1">@role.Name</MudText>
                                 @if (!string.IsNullOrEmpty(role.Description))
                                 {
@@ -82,10 +83,10 @@ else
                     }
                     else
                     {
-                        <MudList T="KeycloakUser" Dense="true">
+                        <MudList T="UserDto" Dense="true">
                             @foreach (var user in _usersWithRole)
                             {
-                                <MudListItem T="KeycloakUser">
+                                <MudListItem T="UserDto">
                                     <MudText Typo="Typo.body1">@user.Username</MudText>
                                     <MudText Typo="Typo.caption">
                                         @(string.IsNullOrEmpty(user.Email) ? 
@@ -103,10 +104,10 @@ else
 }
 
 @code {
-    private List<KeycloakRole>? _roles;
+    private List<RoleDto>? _roles;
     private string _searchString = "";
-    private KeycloakRole? _selectedRole;
-    private List<KeycloakUser> _usersWithRole = [];
+    private RoleDto? _selectedRole;
+    private List<UserDto> _usersWithRole = [];
     private bool _isLoadingUsers = false;
 
     protected override async Task OnInitializedAsync()
@@ -127,9 +128,9 @@ else
         }
     }
 
-    private IEnumerable<KeycloakRole> FilteredRoles => _roles?.Where(FilterRoles) ?? Array.Empty<KeycloakRole>();
+    private IEnumerable<RoleDto> FilteredRoles => _roles?.Where(FilterRoles) ?? Array.Empty<RoleDto>();
 
-    private bool FilterRoles(KeycloakRole role)
+    private bool FilterRoles(RoleDto role)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
@@ -138,7 +139,7 @@ else
                || (role.Description?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
     }
 
-    private async Task RoleSelected(KeycloakRole? role)
+    private async Task RoleSelected(RoleDto? role)
     {
         _selectedRole = role;
         
@@ -152,7 +153,7 @@ else
         }
     }
 
-    private async Task LoadUsersWithRole(KeycloakRole role)
+    private async Task LoadUsersWithRole(RoleDto role)
     {
         if (role.Name == null) return;
         

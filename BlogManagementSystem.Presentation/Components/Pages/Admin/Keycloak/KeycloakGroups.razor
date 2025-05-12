@@ -1,6 +1,6 @@
 @using BlogManagementSystem.Application.Common.Security
+@using BlogManagementSystem.Application.DTOs
 @using BlogManagementSystem.Application.Interfaces
-@using BlogManagementSystem.Domain.Entities
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = RolePermissions.AdminRole)]
 @inject IKeycloakService KeycloakService
@@ -37,13 +37,13 @@ else
                     }
                     else
                     {
-                        <MudTreeView T="KeycloakGroup" 
+                        <MudTreeView T="GroupDto" 
                                     Dense="true" 
                                     Hover="true" 
                                     ExpandAll="true">
                             @foreach (var group in FilteredGroups)
                             {
-                                <MudTreeViewItem T="KeycloakGroup" 
+                                <MudTreeViewItem T="GroupDto" 
                                                @bind-Expanded="group.IsExpanded" 
                                                Text="@group.Name"
                                                Value="group"
@@ -52,7 +52,7 @@ else
                                     {
                                         @foreach (var subGroup in group.SubGroups.Where(FilterGroup))
                                         {
-                                            <MudTreeViewItem T="KeycloakGroup" 
+                                            <MudTreeViewItem T="GroupDto" 
                                                           @bind-Expanded="subGroup.IsExpanded" 
                                                           Text="@subGroup.Name"
                                                           Value="subGroup"
@@ -107,10 +107,10 @@ else
                         }
                         else
                         {
-                            <MudList T="KeycloakUser" Dense="true" DisableGutters="true">
+                            <MudList T="UserDto" Dense="true" DisableGutters="true">
                                 @foreach (var user in _usersInGroup)
                                 {
-                                    <MudListItem T="KeycloakUser">
+                                    <MudListItem T="UserDto">
                                         <MudText Typo="Typo.body1">@user.Username</MudText>
                                         <MudText Typo="Typo.caption">
                                             @(string.IsNullOrEmpty(user.Email) ? 
@@ -129,10 +129,10 @@ else
 }
 
 @code {
-    private List<KeycloakGroup>? _groups;
+    private List<GroupDto>? _groups;
     private string _searchString = "";
-    private KeycloakGroup? _selectedGroup;
-    private List<KeycloakUser> _usersInGroup = [];
+    private GroupDto? _selectedGroup;
+    private List<UserDto> _usersInGroup = [];
     private bool _isLoadingUsers = false;
 
     protected override async Task OnInitializedAsync()
@@ -153,10 +153,10 @@ else
         }
     }
 
-    private IEnumerable<KeycloakGroup> FilteredGroups => _groups?.Where(g => 
-        FilterGroup(g) && (g.Path?.Count(c => c == '/') <= 1 || g.Path == "/")) ?? Array.Empty<KeycloakGroup>();
+    private IEnumerable<GroupDto> FilteredGroups => _groups?.Where(g => 
+        FilterGroup(g) && (g.Path?.Count(c => c == '/') <= 1 || g.Path == "/")) ?? Array.Empty<GroupDto>();
 
-    private bool FilterGroup(KeycloakGroup group)
+    private bool FilterGroup(GroupDto group)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
@@ -175,14 +175,14 @@ else
         return currentMatches || anySubgroupMatches;
     }
 
-    private RenderFragment RenderSubGroups(KeycloakGroup parentGroup) => builder =>
+    private RenderFragment RenderSubGroups(GroupDto parentGroup) => builder =>
     {
         if (parentGroup.SubGroups == null || !parentGroup.SubGroups.Any())
             return;
 
         foreach (var subGroup in parentGroup.SubGroups.Where(FilterGroup))
         {
-            builder.OpenComponent<MudBlazor.MudTreeViewItem<KeycloakGroup>>(0);
+            builder.OpenComponent<MudBlazor.MudTreeViewItem<GroupDto>>(0);
             builder.AddAttribute(1, "Text", subGroup.Name);
             builder.AddAttribute(2, "Value", subGroup);
             builder.AddAttribute(3, "Expanded", subGroup.IsExpanded);
@@ -198,7 +198,7 @@ else
         }
     };
 
-    private async Task GroupSelected(KeycloakGroup? group)
+    private async Task GroupSelected(GroupDto? group)
     {
         _selectedGroup = group;
         
@@ -212,7 +212,7 @@ else
         }
     }
 
-    private async Task LoadUsersInGroup(KeycloakGroup group)
+    private async Task LoadUsersInGroup(GroupDto group)
     {
         if (group.Id == null) return;
         

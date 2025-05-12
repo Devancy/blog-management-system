@@ -1,6 +1,6 @@
 using BlogManagementSystem.Application.DTOs;
-using BlogManagementSystem.Application.Extensions;
 using BlogManagementSystem.Application.Interfaces;
+using BlogManagementSystem.Application.Mapping;
 using BlogManagementSystem.Domain.Entities;
 
 namespace BlogManagementSystem.Application.Services;
@@ -249,7 +249,7 @@ public class PostService(
         return comment.ToDto(userName, userEmail);
     }
     
-    private static string GetFormattedUserName(KeycloakUser user)
+    private static string GetFormattedUserName(UserDto user)
     {
         if (!string.IsNullOrEmpty(user.FirstName) && !string.IsNullOrEmpty(user.LastName))
         {
