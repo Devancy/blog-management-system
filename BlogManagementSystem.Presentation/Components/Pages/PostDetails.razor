@@ -151,7 +151,7 @@
                             <MudText Typo="Typo.body2" Class="mt-2">@comment.Content</MudText>
                             
                             <AuthorizeView>
-                                <Authorized Context="AuthContext">
+                                <Authorized Context="authContext">
                                     @if (_currentUserId == comment.UserId || _isAdmin)
                                     {
                                         <div class="d-flex justify-end mt-2">
@@ -176,7 +176,7 @@
     public string Slug { get; set; } = string.Empty;
     
     private Post? _post;
-    private List<Comment> _comments = new();
+    private List<Comment> _comments = [];
     private string _newComment = string.Empty;
     private bool _isLoading = true;
     private bool _isAddingComment;
