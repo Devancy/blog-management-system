@@ -86,7 +86,8 @@ public interface IKeycloakAdminClient
     [Get("/admin/realms/{realm}/groups")]
     Task<IEnumerable<KeycloakGroup>> GetGroupsAsync(
         [Header("Authorization")] string authToken,
-        [AliasAs("realm")] string realm);
+        [AliasAs("realm")] string realm,
+        [AliasAs("search")] string search = " "); // treat empty search value to include subgroups in response
     
     [Get("/admin/realms/{realm}/groups/{id}")]
     Task<KeycloakGroup> GetGroupByIdAsync(
