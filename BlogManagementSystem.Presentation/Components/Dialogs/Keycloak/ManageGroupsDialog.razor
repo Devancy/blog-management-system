@@ -1,6 +1,6 @@
 @using BlogManagementSystem.Application.DTOs
 
-<MudDialog>
+<MudDialog MaxWidth="MaxWidth.ExtraLarge" FullWidth="true">
     <DialogContent>
         <MudText Typo="Typo.body1" Class="mb-4">
             Manage groups for user <strong>@Username</strong>
@@ -13,33 +13,45 @@
         else
         {
             <MudPaper Elevation="0" Class="py-4 px-1">
-                @foreach (var group in AvailableGroups)
-                {
-                    <MudCheckBox @bind-Value="@SelectedGroups[group.Id ?? ""]" 
-                                Color="Color.Primary" 
-                                Label="@group.Name" 
-                                LabelPlacement="Placement.End" />
-                    <MudText Typo="Typo.caption" Style="margin-left: 32px; margin-bottom: 16px;">
-                        Path: @(group.Path ?? "Unknown path")
-                    </MudText>
-                    
-                    @if (group.SubGroups != null && group.SubGroups.Any())
+                <MudGrid Spacing="2">
+                    @foreach (var group in AvailableGroups)
                     {
-                        <div style="margin-left: 32px;">
-                            @foreach (var subGroup in group.SubGroups)
-                            {
-                                <MudCheckBox @bind-Value="@SelectedGroups[subGroup.Id ?? ""]" 
-                                             Color="Color.Primary" 
-                                             Label="@subGroup.Name" 
-                                             T="bool"
-                                             LabelPlacement="Placement.End" />
-                                <MudText Typo="Typo.caption" Style="margin-left: 32px; margin-bottom: 16px;">
-                                    Path: @(subGroup.Path ?? "Unknown path")
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudCard Elevation="0" Class="pa-2 mb-2 border-1 border-solid rounded-lg">
+                                <MudCheckBox @bind-Value="@SelectedGroups[group.Id ?? ""]" 
+                                            Color="Color.Primary" 
+                                            Label="@group.Name" 
+                                            LabelPlacement="Placement.End" />
+                                <MudText Typo="Typo.caption" Class="ml-8 mb-2 d-block text-truncate" Style="max-width: 95%;" 
+                                         Title="@(group.Path ?? "Unknown path")">
+                                    Path: @(group.Path ?? "Unknown path")
                                 </MudText>
+                            </MudCard>
+                            
+                            @if (group.SubGroups != null && group.SubGroups.Any())
+                            {
+                                <MudGrid Spacing="2" Class="ml-8 mt-1">
+                                    @foreach (var subGroup in group.SubGroups)
+                                    {
+                                        <MudItem xs="12" sm="12" md="12">
+                                            <MudCard Elevation="0" Class="pa-2 mb-2 border-1 border-solid rounded-lg">
+                                                <MudCheckBox @bind-Value="@SelectedGroups[subGroup.Id ?? ""]" 
+                                                            Color="Color.Primary" 
+                                                            Label="@subGroup.Name" 
+                                                            T="bool"
+                                                            LabelPlacement="Placement.End" />
+                                                <MudText Typo="Typo.caption" Class="ml-8 mb-2 d-block text-truncate" Style="max-width: 95%;" 
+                                                         Title="@(subGroup.Path ?? "Unknown path")">
+                                                    Path: @(subGroup.Path ?? "Unknown path")
+                                                </MudText>
+                                            </MudCard>
+                                        </MudItem>
+                                    }
+                                </MudGrid>
                             }
-                        </div>
+                        </MudItem>
                     }
-                }
+                </MudGrid>
             </MudPaper>
         }
     </DialogContent>

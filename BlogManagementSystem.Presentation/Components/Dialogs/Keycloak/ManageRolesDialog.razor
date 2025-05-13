@@ -1,7 +1,7 @@
 @using BlogManagementSystem.Application.DTOs
 @using BlogManagementSystem.Infrastructure.Indentity.Models
 
-<MudDialog>
+<MudDialog MaxWidth="MaxWidth.ExtraLarge" FullWidth="true">
     <DialogContent>
         <MudText Typo="Typo.body1" Class="mb-4">
             Manage roles for user <strong>@Username</strong>
@@ -14,16 +14,24 @@
         else
         {
             <MudPaper Elevation="0" Class="py-4 px-1">
-                @foreach (var role in AvailableRoles)
-                {
-                    <MudCheckBox @bind-Value="@SelectedRoles[role.Name ?? ""]" 
-                                Color="Color.Primary" 
-                                Label="@role.Name"
-                                LabelPlacement="Placement.End" />
-                    <MudText Typo="Typo.caption" Style="margin-left: 32px; margin-bottom: 16px;">
-                        @(role.Description ?? "No description available")
-                    </MudText>
-                }
+                <MudGrid Spacing="2">
+                    @foreach (var role in AvailableRoles)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="3">
+                            <MudCard Elevation="0" Class="pa-2 mb-2 border-1 border-solid rounded-lg">
+                                <MudCheckBox @bind-Value="@SelectedRoles[role.Name ?? ""]" 
+                                            Color="Color.Primary" 
+                                            Label="@role.Name"
+                                            LabelPlacement="Placement.End" />
+                                <MudText Typo="Typo.caption" Class="ml-8 mb-2 d-block" 
+                                         Style="max-height: 40px; overflow: hidden; text-overflow: ellipsis;"
+                                         Title="@(role.Description ?? "No description available")">
+                                    @(role.Description ?? "No description available")
+                                </MudText>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
             </MudPaper>
         }
     </DialogContent>
