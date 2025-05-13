@@ -1,7 +1,7 @@
 using BlogManagementSystem.Application.DTOs;
 using BlogManagementSystem.Domain.Entities;
 
-namespace BlogManagementSystem.Application.Mapping;
+namespace BlogManagementSystem.Application.Extensions;
 
 public static class PostCommentMapper
 {

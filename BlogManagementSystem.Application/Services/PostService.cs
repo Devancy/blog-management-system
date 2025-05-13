@@ -1,6 +1,6 @@
 using BlogManagementSystem.Application.DTOs;
+using BlogManagementSystem.Application.Extensions;
 using BlogManagementSystem.Application.Interfaces;
-using BlogManagementSystem.Application.Mapping;
 using BlogManagementSystem.Domain.Entities;
 
 namespace BlogManagementSystem.Application.Services;

@@ -1,5 +1,6 @@
 @using BlogManagementSystem.Application.Common.Security
 @using BlogManagementSystem.Application.DTOs
+@using BlogManagementSystem.Application.Extensions
 @using BlogManagementSystem.Application.Interfaces
 @using BlogManagementSystem.Infrastructure.Indentity.Models
 @using Microsoft.AspNetCore.Authorization
@@ -43,7 +44,7 @@ else
                                 <MudText Typo="Typo.body1">@role.Name</MudText>
                                 @if (!string.IsNullOrEmpty(role.Description))
                                 {
-                                    <MudText Typo="Typo.caption">@role.Description</MudText>
+                                    <MudText Typo="Typo.caption">@role.GetFormattedDescription()</MudText>
                                 }
                             </MudListItem>
                         }
