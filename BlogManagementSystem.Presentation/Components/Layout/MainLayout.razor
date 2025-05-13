@@ -17,7 +17,7 @@
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
         <AuthorizeView>
             <Authorized>
-                <MudMenu Icon="@Icons.Material.Filled.Person" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                <MudMenu Icon="@Icons.Material.Outlined.PersonOutline" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                     <MudText Typo="Typo.body2" Class="px-4 py-2">
                         Hello, @GetUserDisplayName(context.User)
                     </MudText>
@@ -143,7 +143,7 @@
 
     public string DarkLightModeButtonIcon => _isDarkMode switch
     {
-        true => Icons.Material.Rounded.AutoMode,
+        true => Icons.Material.Rounded.LightMode,
         false => Icons.Material.Outlined.DarkMode,
     };
 }
