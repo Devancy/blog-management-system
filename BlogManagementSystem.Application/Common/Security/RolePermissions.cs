@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using BlogManagementSystem.Application.DTOs;
+using BlogManagementSystem.Application.Extensions;
 using BlogManagementSystem.Domain.Entities;
 
 namespace BlogManagementSystem.Application.Common.Security;
@@ -24,7 +25,7 @@ public static class RolePermissions
             return true;
             
         // Author can only edit their own posts
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
         return user.IsInRole(AuthorRole) && post.AuthorId == userId;
     }
     

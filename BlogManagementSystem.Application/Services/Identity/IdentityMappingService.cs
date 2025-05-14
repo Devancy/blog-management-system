@@ -1,4 +1,8 @@
-using System;using System.Collections.Generic;using System.Linq;using System.Security.Claims;using System.Threading;using System.Threading.Tasks;using BlogManagementSystem.Application.Common.Configuration;using BlogManagementSystem.Application.DTOs;using BlogManagementSystem.Application.Interfaces;using BlogManagementSystem.Domain.Entities;
+using System.Security.Claims;
+using BlogManagementSystem.Application.Common.Configuration;
+using BlogManagementSystem.Application.Extensions;
+using BlogManagementSystem.Application.Interfaces;
+using BlogManagementSystem.Domain.Entities;
 
 namespace BlogManagementSystem.Application.Services.Identity;
 
@@ -20,26 +24,25 @@ public class IdentityMappingService(
         try
         {
             // Extract user data from claims
-            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier) ?? 
-                             principal.FindFirst("sub");
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? 
+                         principal.FindFirstValue("sub");
                              
-            if (userIdClaim == null)
+            if (userId == null)
             {
                 Console.WriteLine("User identifier claim not found in token");
                 return principal;
             }
             
-            var userId = userIdClaim.Value;
-            var userName = principal.FindFirst(ClaimTypes.Name)?.Value ?? 
-                          principal.FindFirst("preferred_username")?.Value ?? 
+            var userName = principal.FindFirstValue(ClaimTypes.Name) ?? 
+                          principal.FindFirstValue("preferred_username") ?? 
                           userId;
-            var email = principal.FindFirst(ClaimTypes.Email)?.Value;
-            var firstName = principal.FindFirst(ClaimTypes.GivenName)?.Value;
-            var lastName = principal.FindFirst(ClaimTypes.Surname)?.Value;
-            var organization = principal.FindFirst("organization")?.Value;
+            var email = principal.FindFirstValue(ClaimTypes.Email);
+            var firstName = principal.FindFirstValue(ClaimTypes.GivenName);
+            var lastName = principal.FindFirstValue(ClaimTypes.Surname);
+            var organization = principal.FindFirstValue("organization");
             
             // Create or update user in local database
-            var userIdentity = await UpsertUserIdentityAsync(userId, userName, email, firstName, lastName, organization, cancellationToken);
+            await UpsertUserIdentityAsync(userId, userName, email, firstName, lastName, organization, cancellationToken);
             
             var roles = await GetUserRolesAsync(userId, cancellationToken);
             
