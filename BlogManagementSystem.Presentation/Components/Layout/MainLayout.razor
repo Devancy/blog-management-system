@@ -21,6 +21,9 @@
                     <MudText Typo="Typo.body2" Class="px-4 py-2">
                         Hello, @GetUserDisplayName(context.User)
                     </MudText>
+                    <MudText Typo="Typo.caption" Class="px-4 pb-2 pt-0">
+                        Organization: @GetUserOrganization(context.User)
+                    </MudText>
                     <MudDivider />
                     <MudMenuItem Href="/Account/Profile" Icon="@Icons.Material.Filled.AccountCircle">Profile</MudMenuItem>
                     <MudMenuItem OnClick="@Logout" Icon="@Icons.Material.Filled.Logout">Logout</MudMenuItem>
@@ -100,6 +103,15 @@
         
         // If still no identifier found, return User as fallback
         return string.IsNullOrEmpty(name) ? "User" : name;
+    }
+    
+    private string GetUserOrganization(ClaimsPrincipal user)
+    {
+        // Try to get name from claims in order of preference
+        var name = user.FindFirstValue("organization");
+        
+        // If still no identifier found, return User as fallback
+        return string.IsNullOrEmpty(name) ? "N/A" : name;
     }
 
     private readonly PaletteLight _lightPalette = new()
