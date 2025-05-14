@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+using BlogManagementSystem.Application.Common.Configuration;
 
 namespace BlogManagementSystem.Application.Interfaces;
 
@@ -13,11 +14,11 @@ public interface IIdentityManagerFactory
     /// Initializes the identity manager with the specified mode.
     /// </summary>
     /// <param name="mode">The identity mode to use ("keycloak" or "proxy").</param>
-    Task Initialize(string mode);
+    Task Initialize(IdentityMode mode);
     
     /// <summary>
     /// Gets the identity manager for the specified mode.
     /// </summary>
     /// <param name="mode">The identity mode to use ("keycloak" or "proxy").</param>
-    IIdentityManager GetManager(string mode);
+    IIdentityManager GetManager(IdentityMode mode);
 } 

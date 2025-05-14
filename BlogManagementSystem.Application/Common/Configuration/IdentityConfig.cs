@@ -7,4 +7,10 @@ public class IdentityConfig
     /// When false, Keycloak is the primary identity provider and manages users, roles, and groups.
     /// </summary>
     public bool UseKeycloakAsIdpProxy { get; set; }
-} 
+}
+
+public enum IdentityMode
+{
+	Keycloak = 0,
+	Proxy = 1
+}

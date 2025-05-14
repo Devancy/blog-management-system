@@ -1,7 +1,7 @@
 @using BlogManagementSystem.Application.Common.Security
 @using BlogManagementSystem.Application.DTOs
 @using BlogManagementSystem.Application.Interfaces
-@using BlogManagementSystem.Presentation.Components.Dialogs.Identity
+@using BlogManagementSystem.Presentation.Components.Dialogs.Proxy
 @using BlogManagementSystem.Presentation.Components.Shared
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
@@ -469,7 +469,7 @@ else
             };
             
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var dialog = await DialogService.ShowAsync<Dialogs.Identity.UserSelectionDialog>("Assign Users to Group", parameters, options);
+            var dialog = await DialogService.ShowAsync<UserSelectionDialog>("Assign Users to Group", parameters, options);
             var result = await dialog.Result;
             
             if (result is { Canceled: false })
@@ -537,7 +537,7 @@ else
             };
             
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var dialog = await DialogService.ShowAsync<Dialogs.Identity.GroupRoleSelectionDialog>("Assign Roles to Group", parameters, options);
+            var dialog = await DialogService.ShowAsync<GroupRoleSelectionDialog>("Assign Roles to Group", parameters, options);
             var result = await dialog.Result;
             
             if (result is { Canceled: false })

@@ -1,10 +1,9 @@
-using System.Threading.Tasks;
 using BlogManagementSystem.Application.Common.Configuration;
 using BlogManagementSystem.Application.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace BlogManagementSystem.Presentation.Components.Pages.Admin.Identity;
+namespace BlogManagementSystem.Presentation.Components.Pages.Admin;
 
 public abstract class IdentityComponentBase : ComponentBase
 {
@@ -13,13 +12,13 @@ public abstract class IdentityComponentBase : ComponentBase
     [Inject] protected IJSRuntime JsRuntime { get; set; } = null!;
     
     protected IIdentityManager IdentityManager => IdentityManagerFactory.CurrentManager;
-    protected string CurrentMode => Config.UseKeycloakAsIdpProxy ? "proxy" : "keycloak";
+    protected IdentityMode CurrentMode => Config.UseKeycloakAsIdpProxy ? IdentityMode.Proxy : IdentityMode.Keycloak;
     
     protected override async Task OnInitializedAsync()
     {
         // Try to load the preferred mode from local storage
         var storedMode = await GetStoredModeAsync();
-        if (!string.IsNullOrEmpty(storedMode) && storedMode != CurrentMode)
+        if (storedMode != CurrentMode)
         {
             await IdentityManagerFactory.Initialize(storedMode);
             await OnModeChangedAsync();
@@ -28,7 +27,7 @@ public abstract class IdentityComponentBase : ComponentBase
         await base.OnInitializedAsync();
     }
     
-    protected async Task ChangeIdentityModeAsync(string mode)
+    protected async Task ChangeIdentityModeAsync(IdentityMode mode)
     {
         if (mode != CurrentMode)
         {
@@ -45,19 +44,20 @@ public abstract class IdentityComponentBase : ComponentBase
         return Task.CompletedTask;
     }
     
-    private async Task<string> GetStoredModeAsync()
+    private async Task<IdentityMode> GetStoredModeAsync()
     {
         try
         {
-            return await JsRuntime.InvokeAsync<string>("localStorage.getItem", "identityMode") ?? "keycloak";
+            var val = await JsRuntime.InvokeAsync<string>("localStorage.getItem", "identityMode");
+            return string.IsNullOrEmpty(val) ? IdentityMode.Keycloak : Enum.Parse<IdentityMode>(val);
         }
         catch
         {
-            return "keycloak";
+            return IdentityMode.Keycloak;
         }
     }
     
-    private async Task StorePreferredModeAsync(string mode)
+    private async Task StorePreferredModeAsync(IdentityMode mode)
     {
         try
         {

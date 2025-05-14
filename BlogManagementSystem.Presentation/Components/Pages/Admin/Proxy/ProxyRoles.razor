@@ -1,11 +1,9 @@
 @using BlogManagementSystem.Application.Common.Security
 @using BlogManagementSystem.Application.DTOs
 @using BlogManagementSystem.Application.Extensions
-@using BlogManagementSystem.Application.Interfaces
-@using BlogManagementSystem.Presentation.Components.Dialogs.Identity
+@using BlogManagementSystem.Presentation.Components.Dialogs.Proxy
 @using BlogManagementSystem.Presentation.Components.Shared
 @using Microsoft.AspNetCore.Authorization
-@using MudBlazor
 @inherits IdentityComponentBase
 @attribute [Authorize(Roles = RolePermissions.AdminRole)]
 @inject ISnackbar Snackbar
@@ -375,7 +373,7 @@ else
             };
             
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var dialog = await DialogService.ShowAsync<Dialogs.Identity.UserSelectionDialog>("Assign Users to Role", parameters, options);
+            var dialog = await DialogService.ShowAsync<UserSelectionDialog>("Assign Users to Role", parameters, options);
             var result = await dialog.Result;
             
             if (result is { Canceled: false })

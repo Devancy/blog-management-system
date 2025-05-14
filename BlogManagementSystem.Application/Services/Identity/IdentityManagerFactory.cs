@@ -6,32 +6,25 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BlogManagementSystem.Application.Services.Identity;
 
-public class IdentityManagerFactory : IIdentityManagerFactory
+public class IdentityManagerFactory(IServiceProvider serviceProvider, IdentityConfig config) : IIdentityManagerFactory
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly IdentityConfig _config;
     private IIdentityManager? _currentManager;
+
+    public IIdentityManager CurrentManager => _currentManager ?? GetManager(config.UseKeycloakAsIdpProxy ? IdentityMode.Proxy : IdentityMode.Keycloak);
     
-    public IdentityManagerFactory(IServiceProvider serviceProvider, IdentityConfig config)
+    public Task Initialize(IdentityMode mode)
     {
-        _serviceProvider = serviceProvider;
-        _config = config;
-    }
-    
-    public IIdentityManager CurrentManager => _currentManager ?? GetManager(_config.UseKeycloakAsIdpProxy ? "proxy" : "keycloak");
-    
-    public async Task Initialize(string mode)
-    {
-        _config.UseKeycloakAsIdpProxy = mode == "proxy";
+        config.UseKeycloakAsIdpProxy = mode == IdentityMode.Proxy;
         _currentManager = GetManager(mode);
+        return Task.CompletedTask;
     }
     
-    public IIdentityManager GetManager(string mode)
+    public IIdentityManager GetManager(IdentityMode mode)
     {
-        return mode.ToLower() switch
+        return mode switch
         {
-            "proxy" => _serviceProvider.GetRequiredService<ProxyIdentityManager>(),
-            "keycloak" => _serviceProvider.GetRequiredService<KeycloakIdentityManager>(),
+            IdentityMode.Proxy => serviceProvider.GetRequiredService<ProxyIdentityManager>(),
+            IdentityMode.Keycloak => serviceProvider.GetRequiredService<KeycloakIdentityManager>(),
             _ => throw new ArgumentException($"Unsupported identity mode: {mode}")
         };
     }

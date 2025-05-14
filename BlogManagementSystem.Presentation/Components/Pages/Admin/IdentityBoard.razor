@@ -1,8 +1,9 @@
 @page "/admin/identity"
+@using BlogManagementSystem.Application.Common.Configuration
 @using BlogManagementSystem.Application.Common.Security
 @using Microsoft.AspNetCore.Authorization
-@using BlogManagementSystem.Presentation.Components.Pages.Admin.Identity
 @using BlogManagementSystem.Presentation.Components.Pages.Admin.Keycloak
+@using BlogManagementSystem.Presentation.Components.Pages.Admin.Proxy
 @inherits IdentityComponentBase
 @attribute [Authorize(Roles = RolePermissions.AdminRole)]
 
@@ -14,7 +15,7 @@
             <CardHeaderContent>
                 <MudText Typo="Typo.h3">Identity Management</MudText>
                 <MudText Typo="Typo.body1" Class="mt-1">
-                    @if (CurrentMode == "keycloak")
+                    @if (CurrentMode == IdentityMode.Keycloak)
                     {
                         <span>Manage users, roles, and groups in the Keycloak identity provider</span>
                     }
@@ -25,14 +26,14 @@
                 </MudText>
             </CardHeaderContent>
             <CardHeaderActions>
-                <MudSelect T="string" 
+                <MudSelect T="IdentityMode" 
                           Label="Identity Mode" 
                           Value="@_selectedMode" 
                           ValueChanged="@OnModeChanged" 
                           Dense="true" 
                           Style="min-width: 200px;">
-                    <MudSelectItem Value="@("keycloak")">Keycloak Direct</MudSelectItem>
-                    <MudSelectItem Value="@("proxy")">Entra ID via Keycloak</MudSelectItem>
+                    <MudSelectItem Value="@IdentityMode.Keycloak">Keycloak Direct</MudSelectItem>
+                    <MudSelectItem Value="@IdentityMode.Proxy">Keycloak as Proxy</MudSelectItem>
                 </MudSelect>
             </CardHeaderActions>
         </MudCardHeader>
@@ -40,7 +41,7 @@
         <MudCardContent>
             <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
                 <MudTabPanel Text="Users" Icon="@Icons.Material.Filled.Person">
-                    @if (CurrentMode == "keycloak")
+                    @if (CurrentMode == IdentityMode.Keycloak)
                     {
                         <KeycloakUsers />
                     }
@@ -50,7 +51,7 @@
                     }
                 </MudTabPanel>
                 <MudTabPanel Text="Roles" Icon="@Icons.Material.Filled.Badge">
-                    @if (CurrentMode == "keycloak")
+                    @if (CurrentMode == IdentityMode.Keycloak)
                     {
                         <KeycloakRoles />
                     }
@@ -60,7 +61,7 @@
                     }
                 </MudTabPanel>
                 <MudTabPanel Text="Groups" Icon="@Icons.Material.Filled.Group">
-                    @if (CurrentMode == "keycloak")
+                    @if (CurrentMode == IdentityMode.Keycloak)
                     {
                         <KeycloakGroups />
                     }
@@ -75,7 +76,7 @@
 </MudContainer>
 
 @code {
-    private string _selectedMode = "keycloak";
+    private IdentityMode _selectedMode = IdentityMode.Keycloak;
     
     protected override async Task OnInitializedAsync()
     {
@@ -83,7 +84,7 @@
         _selectedMode = CurrentMode;
     }
     
-    private async Task OnModeChanged(string newMode)
+    private async Task OnModeChanged(IdentityMode newMode)
     {
         if (newMode != CurrentMode)
         {

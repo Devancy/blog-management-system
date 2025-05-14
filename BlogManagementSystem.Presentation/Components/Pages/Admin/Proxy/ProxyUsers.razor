@@ -1,6 +1,7 @@
 @using BlogManagementSystem.Application.Common.Security
 @using BlogManagementSystem.Application.DTOs
 @using BlogManagementSystem.Application.Interfaces
+@using BlogManagementSystem.Presentation.Components.Dialogs.Proxy
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
 @inherits IdentityComponentBase
@@ -11,17 +12,17 @@
 <MudText Typo="Typo.h5" Class="mb-4">User Management</MudText>
 
 <MudAlert Severity="Severity.Info" Class="mb-4">
-    Users are managed in MS Entra ID and synchronized via Keycloak. 
+    Users are managed in the Identity Provider and synchronized via Keycloak. 
     You can view users and manage their roles and groups, but you cannot create, edit, or delete users directly.
 </MudAlert>
 
-<MudButton Variant="Variant.Filled" 
-           Color="Color.Primary" 
-           StartIcon="@Icons.Material.Filled.Refresh" 
-           Class="mb-4"
-           OnClick="SynchronizeUsers">
-    Synchronize Users
-</MudButton>
+@* <MudButton Variant="Variant.Filled"  *@
+@*            Color="Color.Primary"  *@
+@*            StartIcon="@Icons.Material.Filled.Refresh"  *@
+@*            Class="mb-4" *@
+@*            OnClick="SynchronizeUsers"> *@
+@*     Synchronize Users *@
+@* </MudButton> *@
 
 <MudTextField @bind-Value="_searchString" 
               Placeholder="Search" 
@@ -157,7 +158,7 @@ else
             };
             
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var dialog = await DialogService.ShowAsync<Dialogs.Identity.RoleSelectionDialog>("Manage User Roles", parameters, options);
+            var dialog = await DialogService.ShowAsync<RoleSelectionDialog>("Manage User Roles", parameters, options);
             var result = await dialog.Result;
             
             if (result is { Canceled: false })
@@ -193,7 +194,7 @@ else
             };
             
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var dialog = await DialogService.ShowAsync<Dialogs.Identity.GroupSelectionDialog>("Manage User Groups", parameters, options);
+            var dialog = await DialogService.ShowAsync<GroupSelectionDialog>("Manage User Groups", parameters, options);
             var result = await dialog.Result;
             
             if (result is { Canceled: false })

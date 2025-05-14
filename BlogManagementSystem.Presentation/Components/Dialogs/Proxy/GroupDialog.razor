@@ -14,7 +14,7 @@
                          
             <MudSelect T="string" 
                       Label="Parent Group" 
-                      @bind-Value="_group.ParentGroupId" 
+                      @bind-Value="_group.ParentGroupId"
                       Class="mt-3">
                 <MudSelectItem Value="@((string)null)">None (Root Group)</MudSelectItem>
                 @foreach (var parentGroup in _parentGroups.Where(g => g.ParentGroupId == null))

@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using BlogManagementSystem.Application.DTOs;
 using BlogManagementSystem.Application.Extensions;
 using BlogManagementSystem.Application.Interfaces;
@@ -34,13 +29,13 @@ public class ProxyIdentityManager(
     public async Task<UserDto?> GetUserByIdAsync(string userId, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken);
-        return user != null ? user.ToDto() : null;
+        return user?.ToDto();
     }
     
     public async Task<UserDto?> GetUserByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
         var user = await userRepository.GetByUsernameAsync(username, cancellationToken);
-        return user != null ? user.ToDto() : null;
+        return user?.ToDto();
     }
     
     public async Task<bool> CreateUserAsync(UserDto user, string password, CancellationToken cancellationToken = default)
@@ -257,19 +252,15 @@ public class ProxyIdentityManager(
             return null;
             
         var group = await groupRepository.GetByIdAsync(guid, cancellationToken);
-        if (group == null)
-            return null;
-            
-        return group.ToDto();
+
+        return group?.ToDto();
     }
     
     public async Task<GroupDto?> GetGroupByPathAsync(string groupPath, CancellationToken cancellationToken = default)
     {
         var group = await groupRepository.GetByPathAsync(groupPath, cancellationToken);
-        if (group == null)
-            return null;
-            
-        return group.ToDto();
+
+        return group?.ToDto();
     }
     
     public async Task<GroupDto> CreateGroupAsync(GroupDto group, CancellationToken cancellationToken = default)
@@ -385,10 +376,8 @@ public class ProxyIdentityManager(
         if (!Guid.TryParse(groupId, out var guid))
             return [];
             
-        // Get user IDs in the group
         var userIds = await groupRepository.GetUserIdsInGroupAsync(guid, cancellationToken);
         
-        // Get user details from local repository
         var users = new List<UserDto>();
         foreach (var userId in userIds)
         {

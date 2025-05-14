@@ -349,7 +349,7 @@ else
             };
             
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var dialog = await DialogService.ShowAsync<ManageRolesDialog>("Manage Roles", parameters, options);
+            var dialog = await DialogService.ShowAsync<RolesDialog>("Manage Roles", parameters, options);
             var result = await dialog.Result;
             
             if (result is { Canceled: false } && _selectedUser.Id != null)
@@ -455,7 +455,7 @@ else
             };
             
             var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
-            var dialog = await DialogService.ShowAsync<ManageGroupsDialog>("Manage Groups", parameters, options);
+            var dialog = await DialogService.ShowAsync<GroupsDialog>("Manage Groups", parameters, options);
             var result = await dialog.Result;
             
             if (result is { Canceled: false } && _selectedUser.Id != null)

@@ -1,7 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using BlogManagementSystem.Application.DTOs;
 using BlogManagementSystem.Application.Interfaces;
 
@@ -10,15 +6,8 @@ namespace BlogManagementSystem.Application.Services.Identity;
 /// <summary>
 /// Implementation of IIdentityManager that uses Keycloak as the primary identity provider.
 /// </summary>
-public class KeycloakIdentityManager : IIdentityManager
+public class KeycloakIdentityManager(IKeycloakService keycloakService) : IIdentityManager
 {
-    private readonly IKeycloakService _keycloakService;
-    
-    public KeycloakIdentityManager(IKeycloakService keycloakService)
-    {
-        _keycloakService = keycloakService;
-    }
-    
     // Feature support
     public bool SupportsUserCreation => true;
     public bool SupportsDirectRoleCreation => true;
@@ -27,54 +16,54 @@ public class KeycloakIdentityManager : IIdentityManager
     // User operations
     public async Task<IEnumerable<UserDto>> GetUsersAsync(CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetUsersAsync();
+        return await keycloakService.GetUsersAsync();
     }
     
     public async Task<UserDto?> GetUserByIdAsync(string userId, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetUserByIdAsync(userId);
+        return await keycloakService.GetUserByIdAsync(userId);
     }
     
     public async Task<UserDto?> GetUserByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetUserByUsernameAsync(username);
+        return await keycloakService.GetUserByUsernameAsync(username);
     }
     
     public async Task<bool> CreateUserAsync(UserDto user, string password, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.CreateUserAsync(user, password);
+        return await keycloakService.CreateUserAsync(user, password);
     }
     
     public async Task<bool> UpdateUserAsync(string userId, UserDto user, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.UpdateUserAsync(userId, user);
+        return await keycloakService.UpdateUserAsync(userId, user);
     }
     
     public async Task<bool> DeleteUserAsync(string userId, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.DeleteUserAsync(userId);
+        return await keycloakService.DeleteUserAsync(userId);
     }
     
     public async Task<bool> ResetPasswordAsync(string userId, CredentialDto credential, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.ResetPasswordAsync(userId, credential);
+        return await keycloakService.ResetPasswordAsync(userId, credential);
     }
     
     // Role operations
     public async Task<IEnumerable<RoleDto>> GetRolesAsync(CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetRolesAsync();
+        return await keycloakService.GetRolesAsync();
     }
     
     public async Task<RoleDto?> GetRoleByIdAsync(string roleId, CancellationToken cancellationToken = default)
     {
-        var roles = await _keycloakService.GetRolesAsync();
+        var roles = await keycloakService.GetRolesAsync();
         return roles.FirstOrDefault(r => r.Id == roleId);
     }
     
     public async Task<RoleDto?> GetRoleByNameAsync(string roleName, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetRoleByNameAsync(roleName);
+        return await keycloakService.GetRoleByNameAsync(roleName);
     }
     
     public async Task<RoleDto> CreateRoleAsync(RoleDto role, CancellationToken cancellationToken = default)
@@ -97,30 +86,30 @@ public class KeycloakIdentityManager : IIdentityManager
     
     public async Task<bool> AssignRolesToUserAsync(string userId, List<string> roleIds, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.AssignRolesToUserAsync(userId, roleIds);
+        return await keycloakService.AssignRolesToUserAsync(userId, roleIds);
     }
     
     public async Task<bool> RemoveRolesFromUserAsync(string userId, List<string> roleIds, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.RemoveRolesFromUserAsync(userId, roleIds);
+        return await keycloakService.RemoveRolesFromUserAsync(userId, roleIds);
     }
     
     public async Task<IEnumerable<RoleDto>> GetUserRolesAsync(string userId, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetUserRolesAsync(userId);
+        return await keycloakService.GetUserRolesAsync(userId);
     }
     
     public async Task<IEnumerable<UserDto>> GetUsersInRoleAsync(string roleId, CancellationToken cancellationToken = default)
     {
         // Get all users and filter those who have the role
-        var allUsers = await _keycloakService.GetUsersAsync();
+        var allUsers = await keycloakService.GetUsersAsync();
         var usersInRole = new List<UserDto>();
         
         foreach (var user in allUsers)
         {
             if (user.Id == null) continue;
             
-            var userRoles = await _keycloakService.GetUserRolesAsync(user.Id);
+            var userRoles = await keycloakService.GetUserRolesAsync(user.Id);
             if (userRoles.Any(r => r.Id == roleId))
             {
                 usersInRole.Add(user);
@@ -133,17 +122,17 @@ public class KeycloakIdentityManager : IIdentityManager
     // Group operations
     public async Task<IEnumerable<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetGroupsAsync();
+        return await keycloakService.GetGroupsAsync();
     }
     
     public async Task<GroupDto?> GetGroupByIdAsync(string groupId, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetGroupByIdAsync(groupId);
+        return await keycloakService.GetGroupByIdAsync(groupId);
     }
     
     public async Task<GroupDto?> GetGroupByPathAsync(string groupPath, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetGroupByPathAsync(groupPath);
+        return await keycloakService.GetGroupByPathAsync(groupPath);
     }
     
     public async Task<GroupDto> CreateGroupAsync(GroupDto group, CancellationToken cancellationToken = default)
@@ -166,30 +155,30 @@ public class KeycloakIdentityManager : IIdentityManager
     
     public async Task<bool> AssignUserToGroupsAsync(string userId, List<string> groupIds, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.AssignUserToGroupsAsync(userId, groupIds);
+        return await keycloakService.AssignUserToGroupsAsync(userId, groupIds);
     }
     
     public async Task<bool> RemoveUserFromGroupsAsync(string userId, List<string> groupIds, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.RemoveUserFromGroupsAsync(userId, groupIds);
+        return await keycloakService.RemoveUserFromGroupsAsync(userId, groupIds);
     }
     
     public async Task<IEnumerable<string>> GetUserGroupsAsync(string userId, CancellationToken cancellationToken = default)
     {
-        return await _keycloakService.GetUserGroupsAsync(userId);
+        return await keycloakService.GetUserGroupsAsync(userId);
     }
     
     public async Task<IEnumerable<UserDto>> GetUsersInGroupAsync(string groupId, CancellationToken cancellationToken = default)
     {
         // Get all users and filter those who are in the group
-        var allUsers = await _keycloakService.GetUsersAsync();
+        var allUsers = await keycloakService.GetUsersAsync();
         var usersInGroup = new List<UserDto>();
         
         foreach (var user in allUsers)
         {
             if (user.Id == null) continue;
             
-            var userGroups = await _keycloakService.GetUserGroupsAsync(user.Id);
+            var userGroups = await keycloakService.GetUserGroupsAsync(user.Id);
             if (userGroups.Contains(groupId))
             {
                 usersInGroup.Add(user);

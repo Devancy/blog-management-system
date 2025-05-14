@@ -2,29 +2,17 @@ using System;using System.Collections.Generic;using System.Linq;using System.Sec
 
 namespace BlogManagementSystem.Application.Services.Identity;
 
-public class IdentityMappingService : IIdentityMappingService
+public class IdentityMappingService(
+    ILocalUserIdentityRepository userIdentityRepository,
+    ILocalRoleRepository roleRepository,
+    ILocalGroupRepository groupRepository,
+    IdentityConfig identityConfig)
+    : IIdentityMappingService
 {
-    private readonly ILocalUserIdentityRepository _userIdentityRepository;
-    private readonly ILocalRoleRepository _roleRepository;
-    private readonly ILocalGroupRepository _groupRepository;
-    private readonly IdentityConfig _identityConfig;
-    
-    public IdentityMappingService(
-        ILocalUserIdentityRepository userIdentityRepository,
-        ILocalRoleRepository roleRepository,
-        ILocalGroupRepository groupRepository,
-        IdentityConfig identityConfig)
-    {
-        _userIdentityRepository = userIdentityRepository;
-        _roleRepository = roleRepository;
-        _groupRepository = groupRepository;
-        _identityConfig = identityConfig;
-    }
-    
     public async Task<ClaimsPrincipal> ProcessUserClaimsAsync(ClaimsPrincipal principal, CancellationToken cancellationToken = default)
     {
         // If not in proxy mode, return the original principal
-        if (!_identityConfig.UseKeycloakAsIdpProxy)
+        if (!identityConfig.UseKeycloakAsIdpProxy)
         {
             return principal;
         }
@@ -53,10 +41,8 @@ public class IdentityMappingService : IIdentityMappingService
             // Create or update user in local database
             var userIdentity = await UpsertUserIdentityAsync(userId, userName, email, firstName, lastName, organization, cancellationToken);
             
-            // Get roles from the database for this user
             var roles = await GetUserRolesAsync(userId, cancellationToken);
             
-            // Create a new claims identity with the additional roles
             var identity = new ClaimsIdentity(principal.Identity);
             
             // Add role claims, hard-coded type "roles" for compatibility
@@ -97,21 +83,20 @@ public class IdentityMappingService : IIdentityMappingService
             LastLoginAt = DateTime.UtcNow
         };
         
-        return await _userIdentityRepository.UpsertAsync(userIdentity, cancellationToken);
+        return await userIdentityRepository.UpsertAsync(userIdentity, cancellationToken);
     }
     
     private async Task<List<string>> GetUserRolesAsync(string userId, CancellationToken cancellationToken)
     {
         // Get direct roles
-        var userRoles = await _roleRepository.GetByUserIdAsync(userId, cancellationToken);
+        var userRoles = await roleRepository.GetByUserIdAsync(userId, cancellationToken);
         var roles = userRoles.Select(r => r.Name).ToList();
         
         // Get roles from groups
-        var userGroups = await _groupRepository.GetByUserIdAsync(userId, cancellationToken);
+        var userGroups = await groupRepository.GetByUserIdAsync(userId, cancellationToken);
         foreach (var group in userGroups)
         {
-            // Get roles for this group
-            var groupRoles = await _roleRepository.GetByGroupPathAsync(group.Path, cancellationToken);
+            var groupRoles = await roleRepository.GetByGroupPathAsync(group.Path, cancellationToken);
             roles.AddRange(groupRoles.Select(r => r.Name));
         }
         

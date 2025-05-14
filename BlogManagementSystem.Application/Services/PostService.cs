@@ -255,18 +255,18 @@ public class PostService(
         {
             return $"{user.FirstName} {user.LastName}";
         }
-        else if (!string.IsNullOrEmpty(user.FirstName))
+
+        if (!string.IsNullOrEmpty(user.FirstName))
         {
             return user.FirstName;
         }
-        else if (!string.IsNullOrEmpty(user.Username))
+
+        if (!string.IsNullOrEmpty(user.Username))
         {
             return user.Username;
         }
-        else
-        {
-            return "Unknown User";
-        }
+
+        return "Unknown User";
     }
     
     #endregion
