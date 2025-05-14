@@ -46,6 +46,9 @@ builder.Services.AddRefitClient<IKeycloakAdminClient>()
 // Register Keycloak Service
 builder.Services.AddScoped<IKeycloakService, KeycloakService>();
 
+// Register Identity Services
+builder.Services.AddIdentityServices(builder.Configuration);
+
 // Configure Authentication and Authorization
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
 builder.Services.AddBlogAuthorization();

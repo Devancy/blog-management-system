@@ -1,0 +1,94 @@
+@page "/admin/identity"
+@using BlogManagementSystem.Application.Common.Security
+@using Microsoft.AspNetCore.Authorization
+@using BlogManagementSystem.Presentation.Components.Pages.Admin.Identity
+@using BlogManagementSystem.Presentation.Components.Pages.Admin.Keycloak
+@inherits IdentityComponentBase
+@attribute [Authorize(Roles = RolePermissions.AdminRole)]
+
+<PageTitle>Identity Management</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudCard>
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h3">Identity Management</MudText>
+                <MudText Typo="Typo.body1" Class="mt-1">
+                    @if (CurrentMode == "keycloak")
+                    {
+                        <span>Manage users, roles, and groups in the Keycloak identity provider</span>
+                    }
+                    else
+                    {
+                        <span>Manage roles and groups for users authenticated via MS Entra ID</span>
+                    }
+                </MudText>
+            </CardHeaderContent>
+            <CardHeaderActions>
+                <MudSelect T="string" 
+                          Label="Identity Mode" 
+                          Value="@_selectedMode" 
+                          ValueChanged="@OnModeChanged" 
+                          Dense="true" 
+                          Style="min-width: 200px;">
+                    <MudSelectItem Value="@("keycloak")">Keycloak Direct</MudSelectItem>
+                    <MudSelectItem Value="@("proxy")">Entra ID via Keycloak</MudSelectItem>
+                </MudSelect>
+            </CardHeaderActions>
+        </MudCardHeader>
+        
+        <MudCardContent>
+            <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                <MudTabPanel Text="Users" Icon="@Icons.Material.Filled.Person">
+                    @if (CurrentMode == "keycloak")
+                    {
+                        <KeycloakUsers />
+                    }
+                    else
+                    {
+                        <ProxyUsers />
+                    }
+                </MudTabPanel>
+                <MudTabPanel Text="Roles" Icon="@Icons.Material.Filled.Badge">
+                    @if (CurrentMode == "keycloak")
+                    {
+                        <KeycloakRoles />
+                    }
+                    else
+                    {
+                        <ProxyRoles />
+                    }
+                </MudTabPanel>
+                <MudTabPanel Text="Groups" Icon="@Icons.Material.Filled.Group">
+                    @if (CurrentMode == "keycloak")
+                    {
+                        <KeycloakGroups />
+                    }
+                    else
+                    {
+                        <ProxyGroups />
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private string _selectedMode = "keycloak";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        _selectedMode = CurrentMode;
+    }
+    
+    private async Task OnModeChanged(string newMode)
+    {
+        if (newMode != CurrentMode)
+        {
+            await ChangeIdentityModeAsync(newMode);
+            _selectedMode = newMode;
+        }
+    }
+} 

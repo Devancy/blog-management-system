@@ -1,0 +1,431 @@
+@using BlogManagementSystem.Application.Common.Security
+@using BlogManagementSystem.Application.DTOs
+@using BlogManagementSystem.Application.Extensions
+@using BlogManagementSystem.Application.Interfaces
+@using BlogManagementSystem.Presentation.Components.Dialogs.Identity
+@using BlogManagementSystem.Presentation.Components.Shared
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@inherits IdentityComponentBase
+@attribute [Authorize(Roles = RolePermissions.AdminRole)]
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h5" Class="mb-4">Role Management</MudText>
+
+<MudButton Variant="Variant.Filled" 
+           Color="Color.Primary" 
+           StartIcon="@Icons.Material.Filled.Add" 
+           Class="mb-4"
+           OnClick="OpenCreateRoleDialog">
+    Create Role
+</MudButton>
+
+<MudTextField @bind-Value="_searchString" 
+              Placeholder="Search Roles" 
+              Adornment="Adornment.Start" 
+              AdornmentIcon="@Icons.Material.Filled.Search" 
+              IconSize="Size.Medium" 
+              Class="mb-4">
+</MudTextField>
+
+@if (_roles == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Roles</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Style="max-height: 400px; overflow-y: auto;">
+                    <MudList T="RoleDto" 
+                           Dense="true" 
+                           Clickable="true"
+                           SelectedValue="_selectedRole"
+                           SelectedValueChanged="RoleSelected">
+                        @foreach (var role in FilteredRoles)
+                        {
+                            <MudListItem T="RoleDto" Value="@role">
+                                <div class="d-flex align-center justify-space-between">
+                                    <div>
+                                        <MudText Typo="Typo.body1">@role.Name</MudText>
+                                        @if (!string.IsNullOrEmpty(role.Description))
+                                        {
+                                            <MudText Typo="Typo.caption">@role.GetFormattedDescription()</MudText>
+                                        }
+                                    </div>
+                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true">
+                                        <MudMenuItem OnClick="@(() => OpenEditRoleDialog(role))">Edit</MudMenuItem>
+                                        <MudMenuItem OnClick="@(() => OpenConfirmDeleteRoleDialog(role))">Delete</MudMenuItem>
+                                    </MudMenu>
+                                </div>
+                            </MudListItem>
+                        }
+                    </MudList>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        
+        <MudItem xs="12" md="8">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            @if (_selectedRole != null)
+                            {
+                                <span>Users with role: @_selectedRole.Name</span>
+                            }
+                            else
+                            {
+                                <span>Role Details</span>
+                            }
+                        </MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        @if (_selectedRole != null)
+                        {
+                            <MudButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="OpenManageUsersDialog">
+                                Assign Users
+                            </MudButton>
+                        }
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent Style="max-height: 400px; overflow-y: auto;">
+                    @if (_selectedRole == null)
+                    {
+                        <MudAlert Severity="Severity.Info">Select a role to view details</MudAlert>
+                    }
+                    else if (_isLoadingUsers)
+                    {
+                        <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+                    }
+                    else if (_usersWithRole is  {Count: 0 })
+                    {
+                        <MudAlert Severity="Severity.Info">No users have this role</MudAlert>
+                    }
+                    else
+                    {
+                        <MudList T="UserDto" Dense="true">
+                            @foreach (var user in _usersWithRole)
+                            {
+                                <MudListItem T="UserDto">
+                                    <div class="d-flex align-center justify-space-between w-100">
+                                        <div>
+                                            <MudText Typo="Typo.body1">@user.Username</MudText>
+                                            <MudText Typo="Typo.caption">
+                                                @(string.IsNullOrEmpty(user.Email) ? 
+                                                    (string.IsNullOrEmpty(user.FirstName) ? "" : $"{user.FirstName} {user.LastName}") : 
+                                                    user.Email)
+                                            </MudText>
+                                        </div>
+                                        <MudIconButton Icon="@Icons.Material.Filled.RemoveCircle"
+                                                      Color="Color.Error"
+                                                      Size="Size.Small"
+                                                      OnClick="@(() => RemoveUserFromRole(user))" />
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private List<RoleDto>? _roles;
+    private string _searchString = "";
+    private RoleDto? _selectedRole;
+    private List<UserDto> _usersWithRole = [];
+    private bool _isLoadingUsers = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRoles();
+    }
+    
+    protected override async Task OnModeChangedAsync()
+    {
+        await LoadRoles();
+    }
+
+    private async Task LoadRoles()
+    {
+        try
+        {
+            var allRoles = await IdentityManager.GetRolesAsync();
+            _roles = allRoles.OrderBy(r => r.Name).ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading roles: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private IEnumerable<RoleDto> FilteredRoles => _roles?.Where(FilterRoles) ?? Array.Empty<RoleDto>();
+
+    private bool FilterRoles(RoleDto role)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        return (role.Name?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (role.Description?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private async Task RoleSelected(RoleDto? role)
+    {
+        _selectedRole = role;
+        
+        if (role != null)
+        {
+            await LoadUsersWithRole(role);
+        }
+        else
+        {
+            _usersWithRole.Clear();
+        }
+    }
+
+    private async Task LoadUsersWithRole(RoleDto role)
+    {
+        if (role.Id == null) return;
+        
+        _isLoadingUsers = true;
+        
+        try
+        {
+            var users = await IdentityManager.GetUsersInRoleAsync(role.Id);
+            _usersWithRole = users.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading users with role {role.Name}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoadingUsers = false;
+        }
+    }
+    
+    private async Task OpenCreateRoleDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "Create Role",
+            ["ButtonText"] = "Create",
+            ["Role"] = new RoleDto()
+        };
+        
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<RoleDialog>("Create Role", parameters, options);
+        var result = await dialog.Result;
+        
+        if (result is { Canceled: false })
+        {
+            var newRole = (RoleDto)result.Data!;
+            await CreateRole(newRole);
+        }
+    }
+    
+    private async Task CreateRole(RoleDto role)
+    {
+        try
+        {
+            await IdentityManager.CreateRoleAsync(role);
+            Snackbar.Add($"Role '{role.Name}' created successfully", Severity.Success);
+            await LoadRoles();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error creating role: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task OpenEditRoleDialog(RoleDto role)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "Edit Role",
+            ["ButtonText"] = "Update",
+            ["Role"] = new RoleDto
+            {
+                Id = role.Id,
+                Name = role.Name,
+                Description = role.Description
+            }
+        };
+        
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<RoleDialog>("Edit Role", parameters, options);
+        var result = await dialog.Result;
+        
+        if (result is { Canceled: false })
+        {
+            var updatedRole = (RoleDto)result.Data!;
+            await UpdateRole(updatedRole);
+        }
+    }
+    
+    private async Task UpdateRole(RoleDto role)
+    {
+        if (role.Id == null) return;
+        
+        try
+        {
+            var success = await IdentityManager.UpdateRoleAsync(role.Id, role);
+            if (success)
+            {
+                Snackbar.Add($"Role '{role.Name}' updated successfully", Severity.Success);
+                await LoadRoles();
+                
+                // If this is the currently selected role, reload its details
+                if (_selectedRole?.Id == role.Id)
+                {
+                    _selectedRole = role;
+                }
+            }
+            else
+            {
+                Snackbar.Add("Failed to update role", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating role: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task OpenConfirmDeleteRoleDialog(RoleDto role)
+    {
+        var parameters = new DialogParameters
+        {
+            ["ContentText"] = $"Are you sure you want to delete the role '{role.Name}'? This will also remove the role from all users.",
+            ["ButtonText"] = "Delete",
+            ["Color"] = Color.Error
+        };
+        
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Delete Role", parameters, options);
+        var result = await dialog.Result;
+        
+        if (result is { Canceled: false })
+        {
+            await DeleteRole(role);
+        }
+    }
+    
+    private async Task DeleteRole(RoleDto role)
+    {
+        if (role.Id == null) return;
+        
+        try
+        {
+            var success = await IdentityManager.DeleteRoleAsync(role.Id);
+            if (success)
+            {
+                Snackbar.Add($"Role '{role.Name}' deleted successfully", Severity.Success);
+                
+                // Clear the selected role if it was the deleted one
+                if (_selectedRole?.Id == role.Id)
+                {
+                    _selectedRole = null;
+                    _usersWithRole.Clear();
+                }
+                
+                await LoadRoles();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete role", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting role: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task OpenManageUsersDialog()
+    {
+        if (_selectedRole?.Id == null) return;
+        
+        try
+        {
+            // Get current users with this role
+            var usersWithRole = await IdentityManager.GetUsersInRoleAsync(_selectedRole.Id);
+            var userIds = usersWithRole.Where(u => u.Id != null).Select(u => u.Id!).ToList();
+            
+            var parameters = new DialogParameters
+            {
+                ["ContentText"] = $"Select users to assign to role: {_selectedRole.Name}",
+                ["ButtonText"] = "Assign Users",
+                ["SelectedUserIds"] = userIds
+            };
+            
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var dialog = await DialogService.ShowAsync<Dialogs.Identity.UserSelectionDialog>("Assign Users to Role", parameters, options);
+            var result = await dialog.Result;
+            
+            if (result is { Canceled: false })
+            {
+                var selectedUserIds = (List<string>)result.Data!;
+                
+                // Find which users were removed
+                var usersToRemove = userIds.Except(selectedUserIds).ToList();
+                foreach (var userId in usersToRemove)
+                {
+                    await IdentityManager.RemoveRolesFromUserAsync(userId, [_selectedRole.Id]);
+                }
+                
+                // Find which users were added
+                var usersToAdd = selectedUserIds.Except(userIds).ToList();
+                foreach (var userId in usersToAdd)
+                {
+                    await IdentityManager.AssignRolesToUserAsync(userId, [_selectedRole.Id]);
+                }
+                
+                Snackbar.Add("Users assigned to role successfully", Severity.Success);
+                await LoadUsersWithRole(_selectedRole);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error assigning users to role: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task RemoveUserFromRole(UserDto user)
+    {
+        if (_selectedRole?.Id == null || user.Id == null) return;
+        
+        try
+        {
+            var success = await IdentityManager.RemoveRolesFromUserAsync(user.Id, [_selectedRole.Id]);
+            if (success)
+            {
+                Snackbar.Add($"User removed from role successfully", Severity.Success);
+                await LoadUsersWithRole(_selectedRole);
+            }
+            else
+            {
+                Snackbar.Add("Failed to remove user from role", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error removing user from role: {ex.Message}", Severity.Error);
+        }
+    }
+} 

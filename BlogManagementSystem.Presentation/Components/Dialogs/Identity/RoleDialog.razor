@@ -1,0 +1,73 @@
+@using BlogManagementSystem.Application.DTOs
+@inject MudBlazor.ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_isValid">
+            <MudTextField T="string" 
+                         Label="Role Name" 
+                         @bind-Value="_role.Name" 
+                         Required="true" 
+                         RequiredError="Role name is required"
+                         Immediate="true"
+                         Validation="@(new Func<string, string>(ValidateRoleName))" />
+                         
+            <MudTextField T="string" 
+                         Label="Description" 
+                         @bind-Value="_role.Description" 
+                         Lines="3"
+                         Class="mt-3" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" 
+                  Disabled="@(!_isValid)" 
+                  OnClick="Submit">@ButtonText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? ButtonText { get; set; } = "Save";
+    [Parameter] public RoleDto? Role { get; set; } = new();
+    
+    private RoleDto _role = new();
+    private MudForm? _form;
+    private bool _isValid;
+    
+    protected override void OnInitialized()
+    {
+        if (Role != null)
+        {
+            _role = new RoleDto
+            {
+                Id = Role.Id,
+                Name = Role.Name,
+                Description = Role.Description
+            };
+        }
+    }
+    
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(_role));
+    }
+    
+    private void Cancel() => MudDialog.Cancel();
+    
+    private string ValidateRoleName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "Role name is required";
+            
+        if (name.Length < 2)
+            return "Role name is too short";
+            
+        if (name.Length > 50)
+            return "Role name is too long";
+            
+        return string.Empty;
+    }
+} 

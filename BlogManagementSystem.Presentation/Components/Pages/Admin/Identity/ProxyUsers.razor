@@ -1,0 +1,213 @@
+@using BlogManagementSystem.Application.Common.Security
+@using BlogManagementSystem.Application.DTOs
+@using BlogManagementSystem.Application.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@inherits IdentityComponentBase
+@attribute [Authorize(Roles = RolePermissions.AdminRole)]
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h5" Class="mb-4">User Management</MudText>
+
+<MudAlert Severity="Severity.Info" Class="mb-4">
+    Users are managed in MS Entra ID and synchronized via Keycloak. 
+    You can view users and manage their roles and groups, but you cannot create, edit, or delete users directly.
+</MudAlert>
+
+<MudButton Variant="Variant.Filled" 
+           Color="Color.Primary" 
+           StartIcon="@Icons.Material.Filled.Refresh" 
+           Class="mb-4"
+           OnClick="SynchronizeUsers">
+    Synchronize Users
+</MudButton>
+
+<MudTextField @bind-Value="_searchString" 
+              Placeholder="Search" 
+              Adornment="Adornment.Start" 
+              AdornmentIcon="@Icons.Material.Filled.Search" 
+              IconSize="Size.Medium" 
+              Class="mb-4">
+</MudTextField>
+
+@if (_users == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_users" 
+              Dense="@true" 
+              Hover="@true" 
+              Striped="@true" 
+              Filter="FilterFunc" 
+              T="UserDto">
+        <HeaderContent>
+            <MudTh>Username</MudTh>
+            <MudTh>First Name</MudTh>
+            <MudTh>Last Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Enabled</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Username">@context.Username</MudTd>
+            <MudTd DataLabel="First Name">@context.FirstName</MudTd>
+            <MudTd DataLabel="Last Name">@context.LastName</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Enabled">
+                <MudChip Color="@(context.Enabled ? Color.Success : Color.Error)"
+                         Size="Size.Small" 
+                         T="string">
+                    @(context.Enabled ? "Active" : "Disabled")
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                    <MudMenuItem OnClick="@(() => OpenManageRolesDialog(context))">Manage Roles</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => OpenManageGroupsDialog(context))">Manage Groups</MudMenuItem>
+                </MudMenu>
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private List<UserDto>? _users;
+    private string _searchString = "";
+    private UserDto? _selectedUser;
+    private bool _isSynchronizing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+    
+    protected override async Task OnModeChangedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            var users = await IdentityManager.GetUsersAsync();
+            _users = users.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading users: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private bool FilterFunc(UserDto user)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        return (user.Username?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (user.FirstName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (user.LastName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false)
+               || (user.Email?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+    
+    private async Task SynchronizeUsers()
+    {
+        if (_isSynchronizing) return;
+        
+        _isSynchronizing = true;
+        
+        try
+        {
+            await IdentityManager.SynchronizeUsersAsync();
+            await LoadUsers();
+            Snackbar.Add("Users synchronized successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error synchronizing users: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSynchronizing = false;
+        }
+    }
+    
+    private async Task OpenManageRolesDialog(UserDto user)
+    {
+        _selectedUser = user;
+        if (user.Id == null) return;
+        
+        try
+        {
+            // Get current roles for the user
+            var userRoles = await IdentityManager.GetUserRolesAsync(user.Id);
+            var userRoleIds = userRoles.Where(r => r.Id != null).Select(r => r.Id!).ToList();
+            
+            var parameters = new DialogParameters
+            {
+                ["ContentText"] = $"Assign roles to user: {user.Username}",
+                ["ButtonText"] = "Assign Roles",
+                ["SelectedUserIds"] = new List<string> { user.Id }
+            };
+            
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var dialog = await DialogService.ShowAsync<Dialogs.Identity.RoleSelectionDialog>("Manage User Roles", parameters, options);
+            var result = await dialog.Result;
+            
+            if (result is { Canceled: false })
+            {
+                var selectedRoleIds = (List<string>)result.Data!;
+                
+                // Update user roles
+                await IdentityManager.AssignRolesToUserAsync(user.Id, selectedRoleIds);
+                Snackbar.Add($"Roles updated for user {user.Username}", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error managing roles: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task OpenManageGroupsDialog(UserDto user)
+    {
+        _selectedUser = user;
+        if (user.Id == null) return;
+        
+        try
+        {
+            // Get current groups for the user
+            var userGroups = await IdentityManager.GetUserGroupsAsync(user.Id);
+            
+            var parameters = new DialogParameters
+            {
+                ["ContentText"] = $"Assign groups to user: {user.Username}",
+                ["ButtonText"] = "Assign Groups",
+                ["SelectedUserIds"] = new List<string> { user.Id }
+            };
+            
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var dialog = await DialogService.ShowAsync<Dialogs.Identity.GroupSelectionDialog>("Manage User Groups", parameters, options);
+            var result = await dialog.Result;
+            
+            if (result is { Canceled: false })
+            {
+                var selectedGroupIds = (List<string>)result.Data!;
+                
+                // Update user groups
+                await IdentityManager.AssignUserToGroupsAsync(user.Id, selectedGroupIds);
+                Snackbar.Add($"Groups updated for user {user.Username}", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error managing groups: {ex.Message}", Severity.Error);
+        }
+    }
+} 

@@ -31,11 +31,8 @@
             <AuthorizeView Roles="Admin">
                 <Authorized Context="adminContext">
                     <MudNavGroup Title="Administration" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
-                        <MudNavLink Href="admin/users" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.People">
-                            Users
-                        </MudNavLink>
-                        <MudNavLink Href="admin/roles" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Security">
-                            Roles
+                        <MudNavLink Href="admin/identity" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.ManageAccounts">
+                            Identity Management
                         </MudNavLink>
                         <MudNavLink Href="admin/keycloak" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Key">
                             Keycloak Admin

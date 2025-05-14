@@ -1,0 +1,124 @@
+@using BlogManagementSystem.Application.DTOs
+@using BlogManagementSystem.Application.Interfaces
+@inject IIdentityManagerFactory IdentityManagerFactory
+@inject MudBlazor.ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudText>@ContentText</MudText>
+        
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="my-4" />
+        }
+        else
+        {
+            <MudTextField @bind-Value="_searchString" 
+                         Placeholder="Search Users" 
+                         Adornment="Adornment.Start" 
+                         AdornmentIcon="@Icons.Material.Filled.Search" 
+                         IconSize="Size.Medium" 
+                         Class="my-4" />
+                         
+            <div style="max-height: 400px; overflow-y: auto;">
+                <MudList T="UserDto" Dense="true" Clickable="true">
+                    @foreach (var user in FilteredUsers)
+                    {
+                        <MudListItem T="UserDto">
+                            <div class="d-flex align-center justify-space-between w-100">
+                                <div>
+                                    <MudText Typo="Typo.body1">@user.Username</MudText>
+                                    <MudText Typo="Typo.caption">
+                                        @(string.IsNullOrEmpty(user.Email) ? 
+                                            (string.IsNullOrEmpty(user.FirstName) ? "" : $"{user.FirstName} {user.LastName}") : 
+                                            user.Email)
+                                    </MudText>
+                                </div>
+                                <MudCheckBox T="bool" 
+                                           @bind-Value="@SelectedUsers[user.Id ?? ""]" />
+                            </div>
+                        </MudListItem>
+                    }
+                </MudList>
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">@ButtonText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public string ContentText { get; set; } = "Select users:";
+    [Parameter] public string ButtonText { get; set; } = "Assign";
+    [Parameter] public List<string> ExistingItemIds { get; set; } = [];
+    [Parameter] public List<string> SelectedUserIds { get; set; } = [];
+    
+    private List<UserDto> _allUsers = [];
+    private Dictionary<string, bool> SelectedUsers { get; set; } = new();
+    private string _searchString = "";
+    private bool _loading = true;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+        
+        // Initialize the selection from provided user IDs
+        foreach (var userId in SelectedUserIds)
+        {
+            if (!string.IsNullOrEmpty(userId))
+            {
+                SelectedUsers[userId] = true;
+            }
+        }
+    }
+    
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            _loading = true;
+            var users = await IdentityManagerFactory.CurrentManager.GetUsersAsync();
+            _allUsers = users.Where(u => u.Id != null).ToList();
+            
+            // Initialize the dictionary for all users
+            foreach (var user in _allUsers)
+            {
+                if (user.Id != null)
+                {
+                    SelectedUsers[user.Id] = false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading users: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+    
+    private IEnumerable<UserDto> FilteredUsers => _allUsers
+        .Where(u => string.IsNullOrEmpty(_searchString) ||
+                  (u.Username?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                  (u.FirstName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                  (u.LastName?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                  (u.Email?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false))
+        .OrderBy(u => u.Username);
+    
+    private void Submit()
+    {
+        var selectedUserIds = SelectedUsers
+            .Where(kvp => kvp.Value)
+            .Select(kvp => kvp.Key)
+            .ToList();
+            
+        MudDialog.Close(DialogResult.Ok(selectedUserIds));
+    }
+    
+    private void Cancel() => MudDialog.Cancel();
+} 

@@ -30,7 +30,7 @@ services:
     environment:
       - ConnectionStrings__Database=Server=blogmanagementsystem.postgres;Port=5432;Database=BlogManagementSystemDb;User Id=postgres;Password=postgres;Include Error Detail=true    
       - Keycloak__resource=blog-app-client-docker    
-      - Keycloak__credentials__secret=jYzdEgEssQ0RbbRP0PDNXjmDdi1SWugr    
+      - Keycloak__credentials__secret=jYzdEgEssQ0RbbRP0PDNXjmDdi1SWugr
     depends_on:
 #      - blogmanagementsystem.keycloak
       - blogmanagementsystem.postgres

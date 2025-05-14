@@ -1,0 +1,139 @@
+@using BlogManagementSystem.Application.DTOs
+@using BlogManagementSystem.Application.Interfaces
+@inject IIdentityManagerFactory IdentityManagerFactory
+@inject ISnackbar Snackbar
+
+<MudDialog MaxWidth="MaxWidth.ExtraLarge" FullWidth="true">
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            @ContentText
+        </MudText>
+        
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Class="my-4" />
+        }
+        else
+        {
+            <MudTextField @bind-Value="_searchString" 
+                         Placeholder="Search Roles" 
+                         Adornment="Adornment.Start" 
+                         AdornmentIcon="@Icons.Material.Filled.Search" 
+                         IconSize="Size.Medium" 
+                         Class="mb-4" />
+                         
+            <MudPaper Elevation="0" Class="py-4 px-1">
+                <MudGrid Spacing="2">
+                    @foreach (var role in FilteredRoles)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="3">
+                            <MudCard Elevation="0" Class="pa-2 mb-2 border-1 border-solid rounded-lg">
+                                <MudCheckBox T="bool" @bind-Value="@SelectedRoles[role.Id ?? ""]"
+                                            Color="Color.Primary" 
+                                            Label="@role.Name"
+                                            LabelPlacement="Placement.End" />
+                                <MudText Typo="Typo.caption" Class="ml-8 mb-2 d-block" 
+                                         Style="max-height: 40px; overflow: hidden; text-overflow: ellipsis;"
+                                         Title="@(role.Description ?? "No description available")">
+                                    @(role.Description ?? "No description available")
+                                </MudText>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudPaper>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">@ButtonText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public string ContentText { get; set; } = "Select roles:";
+    [Parameter] public string ButtonText { get; set; } = "Assign";
+    [Parameter] public List<string> SelectedUserIds { get; set; } = [];
+    
+    private List<RoleDto> _allRoles = [];
+    private Dictionary<string, bool> SelectedRoles { get; set; } = new();
+    private string _searchString = "";
+    private bool _loading = true;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRolesAsync();
+        
+        if (SelectedUserIds.Count == 1)
+        {
+            await LoadUserRolesAsync(SelectedUserIds[0]);
+        }
+    }
+    
+    private async Task LoadRolesAsync()
+    {
+        try
+        {
+            _loading = true;
+            var roles = await IdentityManagerFactory.CurrentManager.GetRolesAsync();
+            _allRoles = roles.Where(r => r.Id != null).ToList();
+            
+            // Initialize the dictionary for all roles
+            foreach (var role in _allRoles)
+            {
+                if (role.Id != null)
+                {
+                    SelectedRoles[role.Id] = false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading roles: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+    
+    private async Task LoadUserRolesAsync(string userId)
+    {
+        try
+        {
+            var userRoles = await IdentityManagerFactory.CurrentManager.GetUserRolesAsync(userId);
+            
+            // Update selected status in the dictionary
+            foreach (var role in userRoles)
+            {
+                if (role.Id != null)
+                {
+                    SelectedRoles[role.Id] = true;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading user roles: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private IEnumerable<RoleDto> FilteredRoles => _allRoles
+        .Where(r => string.IsNullOrEmpty(_searchString) ||
+                 (r.Name?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                 (r.Description?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false))
+        .OrderBy(r => r.Name);
+    
+    private void Submit()
+    {
+        var selectedRoleIds = SelectedRoles
+            .Where(kvp => kvp.Value)
+            .Select(kvp => kvp.Key)
+            .ToList();
+            
+        MudDialog.Close(DialogResult.Ok(selectedRoleIds));
+    }
+    
+    private void Cancel() => MudDialog.Cancel();
+} 

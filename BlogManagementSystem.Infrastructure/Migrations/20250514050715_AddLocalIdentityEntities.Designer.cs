@@ -3,6 +3,7 @@ using System;
 using BlogManagementSystem.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BlogManagementSystem.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250514050715_AddLocalIdentityEntities")]
+    partial class AddLocalIdentityEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -104,29 +107,6 @@ namespace BlogManagementSystem.Infrastructure.Migrations
                     b.ToTable("local_groups", (string)null);
                 });
 
-            modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalGroupRole", b =>
-                {
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("group_id");
-
-                    b.Property<Guid>("RoleId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("role_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.HasKey("GroupId", "RoleId")
-                        .HasName("pk_local_group_roles");
-
-                    b.HasIndex("RoleId")
-                        .HasDatabaseName("ix_local_group_roles_role_id");
-
-                    b.ToTable("local_group_roles", (string)null);
-                });
-
             modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -184,67 +164,6 @@ namespace BlogManagementSystem.Infrastructure.Migrations
                         .HasDatabaseName("ix_local_user_groups_group_id");
 
                     b.ToTable("local_user_groups", (string)null);
-                });
-
-            modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalUserIdentity", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("text")
-                        .HasColumnName("user_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("email");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("first_name");
-
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_enabled");
-
-                    b.Property<DateTime>("LastLoginAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_login_at");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("last_name");
-
-                    b.Property<string>("Organization")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("organization");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("username");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_local_user_identities");
-
-                    b.HasIndex("Email")
-                        .HasDatabaseName("ix_local_user_identities_email");
-
-                    b.HasIndex("Username")
-                        .IsUnique()
-                        .HasDatabaseName("ix_local_user_identities_username");
-
-                    b.ToTable("local_user_identities", (string)null);
                 });
 
             modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalUserRole", b =>
@@ -345,27 +264,6 @@ namespace BlogManagementSystem.Infrastructure.Migrations
                     b.Navigation("ParentGroup");
                 });
 
-            modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalGroupRole", b =>
-                {
-                    b.HasOne("BlogManagementSystem.Domain.Entities.LocalGroup", "Group")
-                        .WithMany()
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_local_group_roles_local_groups_group_id");
-
-                    b.HasOne("BlogManagementSystem.Domain.Entities.LocalRole", "Role")
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_local_group_roles_local_roles_role_id");
-
-                    b.Navigation("Group");
-
-                    b.Navigation("Role");
-                });
-
             modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalUserGroup", b =>
                 {
                     b.HasOne("BlogManagementSystem.Domain.Entities.LocalGroup", "Group")
@@ -375,16 +273,7 @@ namespace BlogManagementSystem.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_local_user_groups_local_groups_group_id");
 
-                    b.HasOne("BlogManagementSystem.Domain.Entities.LocalUserIdentity", "UserIdentity")
-                        .WithMany("UserGroups")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_local_user_groups_local_user_identities_user_id");
-
                     b.Navigation("Group");
-
-                    b.Navigation("UserIdentity");
                 });
 
             modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalUserRole", b =>
@@ -396,16 +285,7 @@ namespace BlogManagementSystem.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_local_user_roles_local_roles_role_id");
 
-                    b.HasOne("BlogManagementSystem.Domain.Entities.LocalUserIdentity", "UserIdentity")
-                        .WithMany("UserRoles")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_local_user_roles_local_user_identities_user_id");
-
                     b.Navigation("Role");
-
-                    b.Navigation("UserIdentity");
                 });
 
             modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalGroup", b =>
@@ -417,13 +297,6 @@ namespace BlogManagementSystem.Infrastructure.Migrations
 
             modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalRole", b =>
                 {
-                    b.Navigation("UserRoles");
-                });
-
-            modelBuilder.Entity("BlogManagementSystem.Domain.Entities.LocalUserIdentity", b =>
-                {
-                    b.Navigation("UserGroups");
-
                     b.Navigation("UserRoles");
                 });
 

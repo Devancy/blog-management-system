@@ -1,0 +1,121 @@
+@using BlogManagementSystem.Application.DTOs
+@inject MudBlazor.ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form" @bind-IsValid="@_isValid">
+            <MudTextField T="string" 
+                         Label="Group Name" 
+                         @bind-Value="_group.Name" 
+                         Required="true" 
+                         RequiredError="Group name is required"
+                         Immediate="true"
+                         Validation="@(new Func<string, string>(ValidateGroupName))" />
+                         
+            <MudSelect T="string" 
+                      Label="Parent Group" 
+                      @bind-Value="_group.ParentGroupId" 
+                      Class="mt-3">
+                <MudSelectItem Value="@((string)null)">None (Root Group)</MudSelectItem>
+                @foreach (var parentGroup in _parentGroups.Where(g => g.ParentGroupId == null))
+                {
+                    <MudSelectItem Value="@parentGroup.Id">@parentGroup.Name</MudSelectItem>
+                    @if (parentGroup.SubGroups != null && parentGroup.SubGroups.Any())
+                    {
+                        @foreach (var subGroup in parentGroup.SubGroups)
+                        {
+                            <MudSelectItem Value="@subGroup.Id">└─ @subGroup.Name</MudSelectItem>
+                            @if (subGroup.SubGroups != null && subGroup.SubGroups.Any())
+                            {
+                                @foreach (var subSubGroup in subGroup.SubGroups)
+                                {
+                                    <MudSelectItem Value="@subSubGroup.Id">   └─ @subSubGroup.Name</MudSelectItem>
+                                }
+                            }
+                        }
+                    }
+                }
+            </MudSelect>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" 
+                  Disabled="@(!_isValid)" 
+                  OnClick="Submit">@ButtonText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? ButtonText { get; set; } = "Save";
+    [Parameter] public GroupDto? Group { get; set; } = new();
+    [Parameter] public List<GroupDto>? ParentGroups { get; set; } = [];
+    
+    private GroupDto _group = new();
+    private List<GroupDto> _parentGroups = [];
+    private MudForm? _form;
+    private bool _isValid;
+    
+    protected override void OnInitialized()
+    {
+        if (Group != null)
+        {
+            _group = new GroupDto
+            {
+                Id = Group.Id,
+                Name = Group.Name,
+                Path = Group.Path,
+                ParentGroupId = Group.ParentGroupId
+            };
+        }
+        
+        _parentGroups = FilterAvailableParentGroups();
+    }
+    
+    private List<GroupDto> FilterAvailableParentGroups()
+    {
+        // Create a copy of all available parent groups
+        var availableGroups = ParentGroups?.ToList() ?? [];
+        
+        // If we're editing an existing group, filter out the group itself and its descendants
+        if (_group.Id != null)
+        {
+            availableGroups = availableGroups
+                .Where(g => g.Id != _group.Id && !IsDescendantOf(g, _group.Id))
+                .ToList();
+        }
+        
+        return availableGroups;
+    }
+    
+    private bool IsDescendantOf(GroupDto group, string? ancestorId)
+    {
+        if (string.IsNullOrEmpty(ancestorId) || group.SubGroups == null)
+            return false;
+            
+        return group.SubGroups.Any(sg => sg.Id == ancestorId || IsDescendantOf(sg, ancestorId));
+    }
+    
+    private void Submit()
+    {
+        MudDialog.Close(DialogResult.Ok(_group));
+    }
+    
+    private void Cancel() => MudDialog.Cancel();
+    
+    private string ValidateGroupName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "Group name is required";
+            
+        if (name.Length < 2)
+            return "Group name is too short";
+            
+        if (name.Length > 50)
+            return "Group name is too long";
+            
+        return string.Empty;
+    }
+} 

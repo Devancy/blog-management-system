@@ -1,0 +1,596 @@
+@using BlogManagementSystem.Application.Common.Security
+@using BlogManagementSystem.Application.DTOs
+@using BlogManagementSystem.Application.Interfaces
+@using BlogManagementSystem.Presentation.Components.Dialogs.Identity
+@using BlogManagementSystem.Presentation.Components.Shared
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@inherits IdentityComponentBase
+@attribute [Authorize(Roles = RolePermissions.AdminRole)]
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h5" Class="mb-4">Group Management</MudText>
+
+<MudButton Variant="Variant.Filled" 
+           Color="Color.Primary" 
+           StartIcon="@Icons.Material.Filled.Add" 
+           Class="mb-4"
+           OnClick="OpenCreateGroupDialog">
+    Create Group
+</MudButton>
+
+<MudTextField @bind-Value="_searchString" 
+              Placeholder="Search Groups" 
+              Adornment="Adornment.Start" 
+              AdornmentIcon="@Icons.Material.Filled.Search" 
+              IconSize="Size.Medium" 
+              Class="mb-4">
+</MudTextField>
+
+@if (_groups == null)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Group Hierarchy</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Style="max-height: 500px; overflow-y: auto;">
+                    @if (!_groups.Any())
+                    {
+                        <MudAlert Severity="Severity.Info">No groups found</MudAlert>
+                    }
+                    else
+                    {
+                        <MudTreeView T="GroupDto" 
+                                    Dense="true" 
+                                    Hover="true" 
+                                    ExpandAll="true">
+                            @foreach (var group in FilteredGroups)
+                            {
+                                <MudTreeViewItem T="GroupDto" 
+                                               @bind-Expanded="group.IsExpanded" 
+                                               Text="@group.Name"
+                                               Value="group"
+                                               Icon="@Icons.Material.Filled.Folder"
+                                               OnClick="@(() => GroupSelected(group))">
+                                    @if (group.SubGroups != null && group.SubGroups.Any())
+                                    {
+                                        @foreach (var subGroup in group.SubGroups.Where(FilterGroup))
+                                        {
+                                            <MudTreeViewItem T="GroupDto" 
+                                                          @bind-Expanded="subGroup.IsExpanded" 
+                                                          Text="@subGroup.Name"
+                                                          Value="subGroup"
+                                                          Icon="@Icons.Material.Filled.Folder"
+                                                          OnClick="@(() => GroupSelected(subGroup))">
+                                                @RenderSubGroups(subGroup)
+                                            </MudTreeViewItem>
+                                        }
+                                    }
+                                </MudTreeViewItem>
+                            }
+                        </MudTreeView>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        
+        <MudItem xs="12" md="7">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            @if (_selectedGroup != null)
+                            {
+                                <span>Group Details: @_selectedGroup.Name</span>
+                            }
+                            else
+                            {
+                                <span>Group Details</span>
+                            }
+                        </MudText>
+                    </CardHeaderContent>
+                    <CardHeaderActions>
+                        @if (_selectedGroup != null)
+                        {
+                            <MudMenu Icon="@Icons.Material.Filled.MoreVert">
+                                <MudMenuItem OnClick="@(() => OpenEditGroupDialog(_selectedGroup))">Edit</MudMenuItem>
+                                <MudMenuItem OnClick="@(() => OpenConfirmDeleteGroupDialog(_selectedGroup))">Delete</MudMenuItem>
+                                <MudMenuItem OnClick="OpenManageUsersDialog">Assign Users</MudMenuItem>
+                                <MudMenuItem OnClick="OpenManageRolesDialog">Assign Roles</MudMenuItem>
+                            </MudMenu>
+                        }
+                    </CardHeaderActions>
+                </MudCardHeader>
+                <MudCardContent>
+                    @if (_selectedGroup == null)
+                    {
+                        <MudAlert Severity="Severity.Info">Select a group to view details</MudAlert>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body1"><strong>Path:</strong> @_selectedGroup.Path</MudText>
+                        <MudDivider Class="my-2" />
+                        
+                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Assigned Roles</MudText>
+                        
+                        @if (_isLoadingRoles)
+                        {
+                            <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+                        }
+                        else if (_groupRoles is { Count: 0 })
+                        {
+                            <MudAlert Severity="Severity.Info">No roles assigned to this group</MudAlert>
+                        }
+                        else
+                        {
+                            <MudList T="RoleDto" Dense="true" DisableGutters="true">
+                                @foreach (var role in _groupRoles)
+                                {
+                                    <MudListItem T="RoleDto">
+                                        <div class="d-flex align-center justify-space-between w-100">
+                                            <div>
+                                                <MudText Typo="Typo.body1">@role.Name</MudText>
+                                                @if (!string.IsNullOrEmpty(role.Description))
+                                                {
+                                                    <MudText Typo="Typo.caption">@role.Description</MudText>
+                                                }
+                                            </div>
+                                        </div>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        }
+                        
+                        <MudDivider Class="my-4" />
+                        
+                        <MudText Typo="Typo.h6" Class="mt-4 mb-2">Users in this group</MudText>
+                        
+                        @if (_isLoadingUsers)
+                        {
+                            <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+                        }
+                        else if (_usersInGroup is { Count: 0 })
+                        {
+                            <MudAlert Severity="Severity.Info">No users in this group</MudAlert>
+                        }
+                        else
+                        {
+                            <MudList T="UserDto" Dense="true" DisableGutters="true">
+                                @foreach (var user in _usersInGroup)
+                                {
+                                    <MudListItem T="UserDto">
+                                        <div class="d-flex align-center justify-space-between w-100">
+                                            <div>
+                                                <MudText Typo="Typo.body1">@user.Username</MudText>
+                                                <MudText Typo="Typo.caption">
+                                                    @(string.IsNullOrEmpty(user.Email) ? 
+                                                        (string.IsNullOrEmpty(user.FirstName) ? "" : $"{user.FirstName} {user.LastName}") : 
+                                                        user.Email)
+                                                </MudText>
+                                            </div>
+                                            <MudIconButton Icon="@Icons.Material.Filled.RemoveCircle"
+                                                         Color="Color.Error"
+                                                         Size="Size.Small"
+                                                         OnClick="@(() => RemoveUserFromGroup(user))" />
+                                        </div>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        }
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private List<GroupDto>? _groups;
+    private string _searchString = "";
+    private GroupDto? _selectedGroup;
+    private List<UserDto> _usersInGroup = [];
+    private List<RoleDto> _groupRoles = [];
+    private bool _isLoadingUsers = false;
+    private bool _isLoadingRoles = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGroups();
+    }
+    
+    protected override async Task OnModeChangedAsync()
+    {
+        await LoadGroups();
+    }
+
+    private async Task LoadGroups()
+    {
+        try
+        {
+            var allGroups = await IdentityManager.GetGroupsAsync();
+            _groups = allGroups.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading groups: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private IEnumerable<GroupDto> FilteredGroups => _groups?.Where(g => 
+        FilterGroup(g) && g.ParentGroupId == null) ?? Array.Empty<GroupDto>();
+
+    private bool FilterGroup(GroupDto group)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+
+        // Check if the current group matches
+        bool currentMatches = (group.Name?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                              (group.Path?.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ?? false);
+        
+        // Check if any subgroups match
+        bool anySubgroupMatches = false;
+        if (group.SubGroups != null && group.SubGroups.Any())
+        {
+            anySubgroupMatches = group.SubGroups.Any(g => FilterGroup(g));
+        }
+        
+        return currentMatches || anySubgroupMatches;
+    }
+
+    private RenderFragment RenderSubGroups(GroupDto parentGroup) => builder =>
+    {
+        if (parentGroup.SubGroups == null || !parentGroup.SubGroups.Any())
+            return;
+
+        foreach (var subGroup in parentGroup.SubGroups.Where(FilterGroup))
+        {
+            builder.OpenComponent<MudBlazor.MudTreeViewItem<GroupDto>>(0);
+            builder.AddAttribute(1, "Text", subGroup.Name);
+            builder.AddAttribute(2, "Value", subGroup);
+            builder.AddAttribute(3, "Expanded", subGroup.IsExpanded);
+            builder.AddAttribute(4, "Icon", Icons.Material.Filled.Folder);
+            builder.AddAttribute(5, "ExpandedChanged", EventCallback.Factory.Create<bool>(this, value => subGroup.IsExpanded = value));
+            builder.AddAttribute(6, "OnClick", EventCallback.Factory.Create(this, () => GroupSelected(subGroup)));
+            
+            if (subGroup.SubGroups != null && subGroup.SubGroups.Any())
+            {
+                builder.AddAttribute(7, "ChildContent", RenderSubGroups(subGroup));
+            }
+            
+            builder.CloseComponent();
+        }
+    };
+
+    private async Task GroupSelected(GroupDto? group)
+    {
+        _selectedGroup = group;
+        
+        if (group != null)
+        {
+            await LoadUsersInGroup(group);
+            await LoadGroupRoles(group);
+        }
+        else
+        {
+            _usersInGroup.Clear();
+            _groupRoles.Clear();
+        }
+    }
+
+    private async Task LoadUsersInGroup(GroupDto group)
+    {
+        if (group.Id == null) return;
+        
+        _isLoadingUsers = true;
+        _usersInGroup.Clear();
+        
+        try
+        {
+            var users = await IdentityManager.GetUsersInGroupAsync(group.Id);
+            _usersInGroup = users.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading users in group {group.Name}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoadingUsers = false;
+        }
+    }
+    
+    private async Task OpenCreateGroupDialog()
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "Create Group",
+            ["ButtonText"] = "Create",
+            ["Group"] = new GroupDto(),
+            ["ParentGroups"] = _groups ?? []
+        };
+        
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<GroupDialog>("Create Group", parameters, options);
+        var result = await dialog.Result;
+        
+        if (result is { Canceled: false })
+        {
+            var newGroup = (GroupDto)result.Data!;
+            await CreateGroup(newGroup);
+        }
+    }
+    
+    private async Task CreateGroup(GroupDto group)
+    {
+        try
+        {
+            var createdGroup = await IdentityManager.CreateGroupAsync(group);
+            Snackbar.Add($"Group '{group.Name}' created successfully", Severity.Success);
+            await LoadGroups();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error creating group: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task OpenEditGroupDialog(GroupDto group)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Title"] = "Edit Group",
+            ["ButtonText"] = "Update",
+            ["Group"] = new GroupDto
+            {
+                Id = group.Id,
+                Name = group.Name,
+                Path = group.Path,
+                ParentGroupId = group.ParentGroupId
+            },
+            ["ParentGroups"] = _groups ?? []
+        };
+        
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<GroupDialog>("Edit Group", parameters, options);
+        var result = await dialog.Result;
+        
+        if (result is { Canceled: false })
+        {
+            var updatedGroup = (GroupDto)result.Data!;
+            await UpdateGroup(updatedGroup);
+        }
+    }
+    
+    private async Task UpdateGroup(GroupDto group)
+    {
+        if (group.Id == null) return;
+        
+        try
+        {
+            var success = await IdentityManager.UpdateGroupAsync(group.Id, group);
+            if (success)
+            {
+                Snackbar.Add($"Group '{group.Name}' updated successfully", Severity.Success);
+                await LoadGroups();
+                
+                // If this is the currently selected group, reload its details
+                if (_selectedGroup?.Id == group.Id)
+                {
+                    _selectedGroup = group;
+                    await LoadUsersInGroup(group);
+                }
+            }
+            else
+            {
+                Snackbar.Add("Failed to update group", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating group: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task OpenConfirmDeleteGroupDialog(GroupDto group)
+    {
+        var parameters = new DialogParameters
+        {
+            ["ContentText"] = $"Are you sure you want to delete the group '{group.Name}'? This will also delete all subgroups and remove all users from these groups.",
+            ["ButtonText"] = "Delete",
+            ["Color"] = Color.Error
+        };
+        
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Delete Group", parameters, options);
+        var result = await dialog.Result;
+        
+        if (result is { Canceled: false })
+        {
+            await DeleteGroup(group);
+        }
+    }
+    
+    private async Task DeleteGroup(GroupDto group)
+    {
+        if (group.Id == null) return;
+        
+        try
+        {
+            var success = await IdentityManager.DeleteGroupAsync(group.Id);
+            if (success)
+            {
+                Snackbar.Add($"Group '{group.Name}' deleted successfully", Severity.Success);
+                
+                // Clear the selected group if it was the deleted one
+                if (_selectedGroup?.Id == group.Id)
+                {
+                    _selectedGroup = null;
+                    _usersInGroup.Clear();
+                }
+                
+                await LoadGroups();
+            }
+            else
+            {
+                Snackbar.Add("Failed to delete group", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting group: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task OpenManageUsersDialog()
+    {
+        if (_selectedGroup?.Id == null) return;
+        
+        try
+        {
+            // Get current users in this group
+            var usersInGroup = await IdentityManager.GetUsersInGroupAsync(_selectedGroup.Id);
+            var userIds = usersInGroup.Where(u => u.Id != null).Select(u => u.Id!).ToList();
+            
+            var parameters = new DialogParameters
+            {
+                ["ContentText"] = $"Select users to assign to group: {_selectedGroup.Name}",
+                ["ButtonText"] = "Assign Users",
+                ["SelectedUserIds"] = userIds
+            };
+            
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var dialog = await DialogService.ShowAsync<Dialogs.Identity.UserSelectionDialog>("Assign Users to Group", parameters, options);
+            var result = await dialog.Result;
+            
+            if (result is { Canceled: false })
+            {
+                var selectedUserIds = (List<string>)result.Data!;
+                
+                // Find which users were removed
+                var usersToRemove = userIds.Except(selectedUserIds).ToList();
+                foreach (var userId in usersToRemove)
+                {
+                    await IdentityManager.RemoveUserFromGroupsAsync(userId, [_selectedGroup.Id]);
+                }
+                
+                // Find which users were added
+                var usersToAdd = selectedUserIds.Except(userIds).ToList();
+                foreach (var userId in usersToAdd)
+                {
+                    await IdentityManager.AssignUserToGroupsAsync(userId, [_selectedGroup.Id]);
+                }
+                
+                Snackbar.Add("Users assigned to group successfully", Severity.Success);
+                await LoadUsersInGroup(_selectedGroup);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error assigning users to group: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task RemoveUserFromGroup(UserDto user)
+    {
+        if (_selectedGroup?.Id == null || user.Id == null) return;
+        
+        try
+        {
+            var success = await IdentityManager.RemoveUserFromGroupsAsync(user.Id, [_selectedGroup.Id]);
+            if (success)
+            {
+                Snackbar.Add($"User removed from group successfully", Severity.Success);
+                await LoadUsersInGroup(_selectedGroup);
+            }
+            else
+            {
+                Snackbar.Add("Failed to remove user from group", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error removing user from group: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenManageRolesDialog()
+    {
+        if (_selectedGroup?.Id == null) return;
+        
+        try
+        {
+            var parameters = new DialogParameters
+            {
+                ["ContentText"] = $"Select roles to assign to group: {_selectedGroup.Name}",
+                ["ButtonText"] = "Assign Roles",
+                ["GroupId"] = _selectedGroup.Id
+            };
+            
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium };
+            var dialog = await DialogService.ShowAsync<Dialogs.Identity.GroupRoleSelectionDialog>("Assign Roles to Group", parameters, options);
+            var result = await dialog.Result;
+            
+            if (result is { Canceled: false })
+            {
+                var selectedRoleIds = (List<string>)result.Data!;
+                
+                // Get current roles for the group to determine which ones to add or remove
+                var currentRoles = await IdentityManager.GetGroupRolesAsync(_selectedGroup.Id);
+                var currentRoleIds = currentRoles.Where(r => r.Id != null).Select(r => r.Id!).ToList();
+                
+                // Find which roles were removed
+                var rolesToRemove = currentRoleIds.Except(selectedRoleIds).ToList();
+                if (rolesToRemove.Any())
+                {
+                    await IdentityManager.RemoveRolesFromGroupAsync(_selectedGroup.Id, rolesToRemove);
+                }
+                
+                // Find which roles were added
+                var rolesToAdd = selectedRoleIds.Except(currentRoleIds).ToList();
+                if (rolesToAdd.Any())
+                {
+                    await IdentityManager.AssignRolesToGroupAsync(_selectedGroup.Id, rolesToAdd);
+                }
+                
+                Snackbar.Add("Roles assigned to group successfully", Severity.Success);
+                await LoadGroupRoles(_selectedGroup);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error assigning roles to group: {ex.Message}", Severity.Error);
+        }
+    }
+    
+    private async Task LoadGroupRoles(GroupDto group)
+    {
+        if (group.Id == null) return;
+        
+        _isLoadingRoles = true;
+        _groupRoles.Clear();
+        
+        try
+        {
+            var roles = await IdentityManager.GetGroupRolesAsync(group.Id);
+            _groupRoles = roles.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading roles for group {group.Name}: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoadingRoles = false;
+        }
+    }
+} 

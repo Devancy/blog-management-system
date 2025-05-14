@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using BlogManagementSystem.Application.Common.Security;
+using BlogManagementSystem.Application.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -91,9 +92,16 @@ public static class ServiceCollectionExtensions
                     context.Response.Redirect("/Error/AuthError?errorMessage=" + Uri.EscapeDataString(context.Exception.Message));
                     return Task.CompletedTask;
                 },
-                OnTokenValidated = context =>
+                OnTokenValidated = async context =>
                 {
                     Console.WriteLine("Token validated successfully!");
+                    
+                    // Process roles and enhanced identity when in proxy mode
+                    var identityMappingService = context.HttpContext.RequestServices
+                        .GetRequiredService<IIdentityMappingService>();
+                    
+                    // Process the user claims, adding any local roles and group memberships
+                    context.Principal = await identityMappingService.ProcessUserClaimsAsync(context.Principal!);
                     
                     // Extract roles and groups from the token and add them as claims
                     var rolesClaim = context.Principal?.FindFirst("roles");
@@ -116,8 +124,6 @@ public static class ServiceCollectionExtensions
                             Console.WriteLine($"Error processing roles: {ex.Message}");
                         }
                     }
-                    
-                    return Task.CompletedTask;
                 },
                 OnRemoteFailure = context =>
                 {
@@ -129,23 +135,22 @@ public static class ServiceCollectionExtensions
                 },
                 OnAuthorizationCodeReceived = context =>
                 {
-                    Console.WriteLine("Authorization code received successfully!");
+                    Console.WriteLine("Authorization code received!");
                     return Task.CompletedTask;
                 },
-                OnMessageReceived = context =>
+                OnTicketReceived = context =>
                 {
-                    Console.WriteLine("Message received from Keycloak");
-                    if (context.ProtocolMessage.Error != null)
-                    {
-                        Console.WriteLine($"Error in message: {context.ProtocolMessage.Error}");
-                        Console.WriteLine($"Error description: {context.ProtocolMessage.ErrorDescription}");
-                        Console.WriteLine($"Error URI: {context.ProtocolMessage.ErrorUri}");
-                    }
+                    Console.WriteLine("Ticket received!");
+                    return Task.CompletedTask;
+                },
+                OnUserInformationReceived = context =>
+                {
+                    Console.WriteLine("User information received!");
                     return Task.CompletedTask;
                 }
             };
         });
-
+        
         return services;
     }
 
