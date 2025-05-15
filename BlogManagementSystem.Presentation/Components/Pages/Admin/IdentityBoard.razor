@@ -90,6 +90,7 @@
         {
             await ChangeIdentityModeAsync(newMode);
             _selectedMode = newMode;
+            StateHasChanged();
         }
     }
 } 

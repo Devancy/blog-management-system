@@ -9,12 +9,12 @@ public interface IIdentityManagerFactory
     /// Gets the current identity manager based on configuration.
     /// </summary>
     IIdentityManager CurrentManager { get; }
-    
+
     /// <summary>
     /// Initializes the identity manager with the specified mode.
     /// </summary>
     /// <param name="mode">The identity mode to use ("keycloak" or "proxy").</param>
-    Task Initialize(IdentityMode mode);
+    void Initialize(IdentityMode mode);
     
     /// <summary>
     /// Gets the identity manager for the specified mode.

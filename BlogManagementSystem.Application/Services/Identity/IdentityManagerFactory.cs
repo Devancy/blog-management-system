@@ -10,11 +10,10 @@ public class IdentityManagerFactory(IServiceProvider serviceProvider, IdentityCo
 
     public IIdentityManager CurrentManager => _currentManager ?? GetManager(config.UseKeycloakAsIdpProxy ? IdentityMode.Proxy : IdentityMode.Keycloak);
     
-    public Task Initialize(IdentityMode mode)
+    public void Initialize(IdentityMode mode)
     {
         config.UseKeycloakAsIdpProxy = mode == IdentityMode.Proxy;
         _currentManager = GetManager(mode);
-        return Task.CompletedTask;
     }
     
     public IIdentityManager GetManager(IdentityMode mode)

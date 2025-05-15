@@ -11,17 +11,17 @@ public abstract class IdentityComponentBase : ComponentBase
     [Inject] protected IIdentityManagerFactory IdentityManagerFactory { get; set; } = null!;
     [Inject] protected IdentityConfig Config { get; set; } = null!;
     [Inject] protected AppSettingService AppSettingService { get; set; } = null!;
+    [Inject] protected IServiceProvider ServiceProvider { get; set; } = null!;
     
     protected IIdentityManager IdentityManager => IdentityManagerFactory.CurrentManager;
     protected IdentityMode CurrentMode => Config.UseKeycloakAsIdpProxy ? IdentityMode.Proxy : IdentityMode.Keycloak;
     
     protected override async Task OnInitializedAsync()
     {
-        // Try to load the preferred mode from local storage
         var storedMode = await GetStoredModeAsync();
         if (storedMode != CurrentMode)
         {
-            await IdentityManagerFactory.Initialize(storedMode);
+            IdentityManagerFactory.Initialize(storedMode);
             await OnModeChangedAsync();
         }
         
@@ -32,8 +32,16 @@ public abstract class IdentityComponentBase : ComponentBase
     {
         if (mode != CurrentMode)
         {
-            await IdentityManagerFactory.Initialize(mode);
-            await StorePreferredModeAsync(mode);
+            // Create a new service scope to isolate DbContext operations
+            using (var scope = ServiceProvider.CreateScope())
+            {
+                var scopedAppSettingService = scope.ServiceProvider.GetRequiredService<AppSettingService>();
+                await StorePreferredModeAsync(mode, scopedAppSettingService);
+            }
+            
+            // Now that the database operations are complete, initialize the main factory
+            IdentityManagerFactory.Initialize(mode);
+            
             await OnModeChangedAsync();
             StateHasChanged();
         }
@@ -60,9 +68,14 @@ public abstract class IdentityComponentBase : ComponentBase
     
     private async Task StorePreferredModeAsync(IdentityMode mode)
     {
+        await StorePreferredModeAsync(mode, AppSettingService);
+    }
+    
+    private async Task StorePreferredModeAsync(IdentityMode mode, AppSettingService settingService)
+    {
         try
         {
-            await AppSettingService.SetSettingAsync(Constants.Identity.UseKeycloakAsIdpProxyKey, mode == IdentityMode.Proxy);
+            await settingService.SetSettingAsync(Constants.Identity.UseKeycloakAsIdpProxyKey, mode == IdentityMode.Proxy);
         }
         catch(Exception ex)
         {
