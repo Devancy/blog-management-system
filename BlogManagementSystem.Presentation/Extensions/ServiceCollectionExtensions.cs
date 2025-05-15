@@ -199,7 +199,7 @@ public static class ServiceCollectionExtensions
     public static async Task InitializeIdentitySettingsAsync(this IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
-        var settingService = scope.ServiceProvider.GetRequiredService<AppSettingService>();
+        var settingService = scope.ServiceProvider.GetRequiredService<IAppSettingService>();
         var identityConfig = scope.ServiceProvider.GetRequiredService<IdentityConfig>();
         
         var useKeycloakAsIdpProxy = await settingService.GetSettingAsync(Constants.Identity.UseKeycloakAsIdpProxyKey, false);

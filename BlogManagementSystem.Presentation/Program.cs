@@ -37,7 +37,12 @@ builder.Services.AddScoped<IAppSettingRepository, AppSettingRepository>();
 
 // Register services
 builder.Services.AddScoped<PostService>();
-builder.Services.AddScoped<AppSettingService>();
+builder.Services.AddScoped<IAppSettingService, AppSettingService>();
+builder.Services.Decorate<IAppSettingService>((inner, provider) => 
+{
+    var memoryCache = provider.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+    return new CachedAppSettingService(inner, memoryCache);
+});
 
 // Add HttpClient factory for connection tests
 builder.Services.AddHttpClient();

@@ -2,7 +2,7 @@ using BlogManagementSystem.Application.Interfaces;
 
 namespace BlogManagementSystem.Application.Services;
 
-public class AppSettingService(IAppSettingRepository settingRepository)
+public class AppSettingService(IAppSettingRepository settingRepository) : IAppSettingService
 {
     /// <summary>
     /// Retrieves a setting value from the database, or returns the default value if not found.

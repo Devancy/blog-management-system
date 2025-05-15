@@ -10,7 +10,7 @@ public abstract class IdentityComponentBase : ComponentBase
 {
     [Inject] protected IIdentityManagerFactory IdentityManagerFactory { get; set; } = null!;
     [Inject] protected IdentityConfig Config { get; set; } = null!;
-    [Inject] protected AppSettingService AppSettingService { get; set; } = null!;
+    [Inject] protected IAppSettingService AppSettingService { get; set; } = null!;
     [Inject] protected IServiceProvider ServiceProvider { get; set; } = null!;
     
     protected IIdentityManager IdentityManager => IdentityManagerFactory.CurrentManager;
@@ -35,7 +35,7 @@ public abstract class IdentityComponentBase : ComponentBase
             // Create a new service scope to isolate DbContext operations
             using (var scope = ServiceProvider.CreateScope())
             {
-                var scopedAppSettingService = scope.ServiceProvider.GetRequiredService<AppSettingService>();
+                var scopedAppSettingService = scope.ServiceProvider.GetRequiredService<IAppSettingService>();
                 await StorePreferredModeAsync(mode, scopedAppSettingService);
             }
             
@@ -71,7 +71,7 @@ public abstract class IdentityComponentBase : ComponentBase
         await StorePreferredModeAsync(mode, AppSettingService);
     }
     
-    private async Task StorePreferredModeAsync(IdentityMode mode, AppSettingService settingService)
+    private async Task StorePreferredModeAsync(IdentityMode mode, IAppSettingService settingService)
     {
         try
         {
