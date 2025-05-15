@@ -185,6 +185,7 @@ public static class ServiceCollectionExtensions
         
         // Register identity managers and services
         services.AddScoped<KeycloakIdentityManager>();
+        services.AddScoped<KeycloakIdentityManagerAdapter>();
         services.AddScoped<ProxyIdentityManager>();
         services.AddScoped<IIdentityManagerFactory, IdentityManagerFactory>();
         services.AddScoped<IIdentityMappingService, IdentityMappingService>();

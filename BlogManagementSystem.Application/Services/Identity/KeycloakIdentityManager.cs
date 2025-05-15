@@ -1,19 +1,30 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using BlogManagementSystem.Application.DTOs;
 using BlogManagementSystem.Application.Interfaces;
+using BlogManagementSystem.Application.Interfaces.Identity;
 
 namespace BlogManagementSystem.Application.Services.Identity;
 
 /// <summary>
 /// Implementation of IIdentityManager that uses Keycloak as the primary identity provider.
 /// </summary>
-public class KeycloakIdentityManager(IKeycloakService keycloakService) : IIdentityManager
+public class KeycloakIdentityManager(IKeycloakService keycloakService) :
+    IIdentityManager,
+    IUserManagement,
+    IUserRoleManagement,
+    IUserGroupManagement,
+    IIdentitySynchronization
 {
     // Feature support
     public bool SupportsUserCreation => true;
-    public bool SupportsDirectRoleCreation => true;
-    public bool SupportsDirectGroupCreation => true;
+    public bool SupportsDirectRoleCreation => false; // Not implemented in Keycloak service
+    public bool SupportsDirectGroupCreation => false; // Not implemented in Keycloak service
     
-    // User operations
+    // User operations - IUserManagement
     public async Task<IEnumerable<UserDto>> GetUsersAsync(CancellationToken cancellationToken = default)
     {
         return await keycloakService.GetUsersAsync();
@@ -49,7 +60,7 @@ public class KeycloakIdentityManager(IKeycloakService keycloakService) : IIdenti
         return await keycloakService.ResetPasswordAsync(userId, credential);
     }
     
-    // Role operations
+    // Role operations - IRoleManagement
     public async Task<IEnumerable<RoleDto>> GetRolesAsync(CancellationToken cancellationToken = default)
     {
         return await keycloakService.GetRolesAsync();
@@ -66,24 +77,23 @@ public class KeycloakIdentityManager(IKeycloakService keycloakService) : IIdenti
         return await keycloakService.GetRoleByNameAsync(roleName);
     }
     
-    public async Task<RoleDto> CreateRoleAsync(RoleDto role, CancellationToken cancellationToken = default)
+    // These methods are not supported by Keycloak service but required by the interface
+    public Task<RoleDto> CreateRoleAsync(RoleDto role, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support role creation
-        throw new System.NotImplementedException("Role creation is not implemented in the current Keycloak service");
+        throw new NotImplementedException("Role creation is not implemented in the current Keycloak service");
     }
     
-    public async Task<bool> UpdateRoleAsync(string roleId, RoleDto role, CancellationToken cancellationToken = default)
+    public Task<bool> UpdateRoleAsync(string roleId, RoleDto role, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support role updates
-        throw new System.NotImplementedException("Role update is not implemented in the current Keycloak service");
+        throw new NotImplementedException("Role update is not implemented in the current Keycloak service");
     }
     
-    public async Task<bool> DeleteRoleAsync(string roleId, CancellationToken cancellationToken = default)
+    public Task<bool> DeleteRoleAsync(string roleId, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support role deletion
-        throw new System.NotImplementedException("Role deletion is not implemented in the current Keycloak service");
+        throw new NotImplementedException("Role deletion is not implemented in the current Keycloak service");
     }
     
+    // User-Role operations - IUserRoleManagement
     public async Task<bool> AssignRolesToUserAsync(string userId, List<string> roleIds, CancellationToken cancellationToken = default)
     {
         return await keycloakService.AssignRolesToUserAsync(userId, roleIds);
@@ -119,7 +129,7 @@ public class KeycloakIdentityManager(IKeycloakService keycloakService) : IIdenti
         return usersInRole;
     }
     
-    // Group operations
+    // Group operations - IGroupManagement
     public async Task<IEnumerable<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken = default)
     {
         return await keycloakService.GetGroupsAsync();
@@ -135,24 +145,23 @@ public class KeycloakIdentityManager(IKeycloakService keycloakService) : IIdenti
         return await keycloakService.GetGroupByPathAsync(groupPath);
     }
     
-    public async Task<GroupDto> CreateGroupAsync(GroupDto group, CancellationToken cancellationToken = default)
+    // These methods are not supported by Keycloak service but required by the interface
+    public Task<GroupDto> CreateGroupAsync(GroupDto group, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support group creation
-        throw new System.NotImplementedException("Group creation is not implemented in the current Keycloak service");
+        throw new NotImplementedException("Group creation is not implemented in the current Keycloak service");
     }
     
-    public async Task<bool> UpdateGroupAsync(string groupId, GroupDto group, CancellationToken cancellationToken = default)
+    public Task<bool> UpdateGroupAsync(string groupId, GroupDto group, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support group updates
-        throw new System.NotImplementedException("Group update is not implemented in the current Keycloak service");
+        throw new NotImplementedException("Group update is not implemented in the current Keycloak service");
     }
     
-    public async Task<bool> DeleteGroupAsync(string groupId, CancellationToken cancellationToken = default)
+    public Task<bool> DeleteGroupAsync(string groupId, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support group deletion
-        throw new System.NotImplementedException("Group deletion is not implemented in the current Keycloak service");
+        throw new NotImplementedException("Group deletion is not implemented in the current Keycloak service");
     }
     
+    // User-Group operations - IUserGroupManagement
     public async Task<bool> AssignUserToGroupsAsync(string userId, List<string> groupIds, CancellationToken cancellationToken = default)
     {
         return await keycloakService.AssignUserToGroupsAsync(userId, groupIds);
@@ -188,29 +197,27 @@ public class KeycloakIdentityManager(IKeycloakService keycloakService) : IIdenti
         return usersInGroup;
     }
     
-    // Utilities
+    // Utilities - IIdentitySynchronization
     public async Task<bool> SynchronizeUsersAsync(CancellationToken cancellationToken = default)
     {
         // No synchronization needed in direct mode
         return true;
     }
     
-    // Group-Role operations
-    public async Task<IEnumerable<RoleDto>> GetGroupRolesAsync(string groupId, CancellationToken cancellationToken = default)
+    // Group-Role operations - IGroupRoleManagement
+    // These methods are not supported by Keycloak service but required by the interface
+    public Task<IEnumerable<RoleDto>> GetGroupRolesAsync(string groupId, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support group role assignments
-        throw new System.NotImplementedException("Group role management is only supported in proxy mode");
+        throw new NotImplementedException("Group role management is only supported in proxy mode");
     }
     
-    public async Task<bool> AssignRolesToGroupAsync(string groupId, List<string> roleIds, CancellationToken cancellationToken = default)
+    public Task<bool> AssignRolesToGroupAsync(string groupId, List<string> roleIds, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support group role assignments
-        throw new System.NotImplementedException("Group role management is only supported in proxy mode");
+        throw new NotImplementedException("Group role management is only supported in proxy mode");
     }
     
-    public async Task<bool> RemoveRolesFromGroupAsync(string groupId, List<string> roleIds, CancellationToken cancellationToken = default)
+    public Task<bool> RemoveRolesFromGroupAsync(string groupId, List<string> roleIds, CancellationToken cancellationToken = default)
     {
-        // This is a placeholder - Keycloak service needs to be extended to support group role assignments
-        throw new System.NotImplementedException("Group role management is only supported in proxy mode");
+        throw new NotImplementedException("Group role management is only supported in proxy mode");
     }
-} 
+}

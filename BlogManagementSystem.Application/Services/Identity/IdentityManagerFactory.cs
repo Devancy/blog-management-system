@@ -7,7 +7,6 @@ namespace BlogManagementSystem.Application.Services.Identity;
 public class IdentityManagerFactory(IServiceProvider serviceProvider, IdentityConfig config) : IIdentityManagerFactory
 {
     private IIdentityManager? _currentManager;
-
     public IIdentityManager CurrentManager => _currentManager ?? GetManager(config.UseKeycloakAsIdpProxy ? IdentityMode.Proxy : IdentityMode.Keycloak);
     
     public void Initialize(IdentityMode mode)
@@ -20,9 +19,20 @@ public class IdentityManagerFactory(IServiceProvider serviceProvider, IdentityCo
     {
         return mode switch
         {
-            IdentityMode.Proxy => serviceProvider.GetRequiredService<ProxyIdentityManager>(),
-            IdentityMode.Keycloak => serviceProvider.GetRequiredService<KeycloakIdentityManager>(),
+            IdentityMode.Proxy => CreateProxyManager(),
+            IdentityMode.Keycloak => CreateKeycloakManager(),
             _ => throw new ArgumentException($"Unsupported identity mode: {mode}")
         };
     }
-} 
+
+    private IIdentityManager CreateProxyManager()
+    {
+        return serviceProvider.GetRequiredService<ProxyIdentityManager>();
+    }
+
+    private IIdentityManager CreateKeycloakManager()
+    {
+        // Use the adapter pattern to safely handle unsupported operations
+        return serviceProvider.GetRequiredService<KeycloakIdentityManagerAdapter>();
+    }
+}
