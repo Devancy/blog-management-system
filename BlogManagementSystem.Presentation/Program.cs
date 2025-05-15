@@ -1,6 +1,7 @@
 using BlogManagementSystem.Application.Interfaces;
 using BlogManagementSystem.Application.Services;
 using BlogManagementSystem.Infrastructure.Persistence;
+using BlogManagementSystem.Infrastructure.Repositories;
 using BlogManagementSystem.Infrastructure.Services;
 using MudBlazor.Services;
 using BlogManagementSystem.Presentation.Components;
@@ -32,9 +33,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options
 // Register repositories
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<IAppSettingRepository, AppSettingRepository>();
 
 // Register services
 builder.Services.AddScoped<PostService>();
+builder.Services.AddScoped<AppSettingService>();
 
 // Add HttpClient factory for connection tests
 builder.Services.AddHttpClient();
@@ -88,5 +91,8 @@ app.MapControllers();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Initialize identity settings from database
+await app.Services.InitializeIdentitySettingsAsync();
 
 app.Run();

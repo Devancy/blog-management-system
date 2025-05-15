@@ -13,6 +13,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 	public DbSet<LocalUserGroup> LocalUserGroups { get; set; }
 	public DbSet<LocalUserIdentity> LocalUserIdentities { get; set; }
 	public DbSet<LocalGroupRole> LocalGroupRoles { get; set; }
+	public DbSet<AppSetting> AppSettings { get; set; }
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
@@ -152,5 +153,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			.WithMany()
 			.HasForeignKey(gr => gr.RoleId)
 			.OnDelete(DeleteBehavior.Cascade);
+			
+		// AppSettings configuration
+		modelBuilder.Entity<AppSetting>()
+			.HasIndex(s => s.Key)
+			.IsUnique();
+			
+		modelBuilder.Entity<AppSetting>()
+			.Property(s => s.Key)
+			.IsRequired()
+			.HasMaxLength(100);
+			
+		modelBuilder.Entity<AppSetting>()
+			.Property(s => s.Value)
+			.IsRequired();
 	}
 }

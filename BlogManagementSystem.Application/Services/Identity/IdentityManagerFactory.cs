@@ -1,5 +1,3 @@
-using System;
-using System.Threading.Tasks;
 using BlogManagementSystem.Application.Common.Configuration;
 using BlogManagementSystem.Application.Interfaces;
 using Microsoft.Extensions.DependencyInjection;

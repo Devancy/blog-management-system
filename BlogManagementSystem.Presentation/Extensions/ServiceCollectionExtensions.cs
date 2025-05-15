@@ -1,6 +1,11 @@
 using System.Security.Claims;
+using BlogManagementSystem.Application.Common;
+using BlogManagementSystem.Application.Common.Configuration;
 using BlogManagementSystem.Application.Common.Security;
 using BlogManagementSystem.Application.Interfaces;
+using BlogManagementSystem.Application.Services;
+using BlogManagementSystem.Application.Services.Identity;
+using BlogManagementSystem.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -165,5 +170,41 @@ public static class ServiceCollectionExtensions
                 policy.RequireRole(RolePermissions.AuthorRole));
 
         return services;
+    }
+    
+    public static IServiceCollection AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Register configuration
+        var identityConfig = new IdentityConfig();
+        services.AddSingleton(identityConfig);
+        
+        // Register repositories
+        services.AddScoped<ILocalRoleRepository, LocalRoleRepository>();
+        services.AddScoped<ILocalGroupRepository, LocalGroupRepository>();
+        services.AddScoped<ILocalUserIdentityRepository, LocalUserIdentityRepository>();
+        
+        // Register identity managers and services
+        services.AddScoped<KeycloakIdentityManager>();
+        services.AddScoped<ProxyIdentityManager>();
+        services.AddScoped<IIdentityManagerFactory, IdentityManagerFactory>();
+        services.AddScoped<IIdentityMappingService, IdentityMappingService>();
+        
+        return services;
+    }
+    
+    /// <summary>
+    /// Initializes identity settings by loading from the database or migrating from configuration.
+    /// This method should be called during app startup after the database is ready.
+    /// </summary>
+    public static async Task InitializeIdentitySettingsAsync(this IServiceProvider serviceProvider)
+    {
+        using var scope = serviceProvider.CreateScope();
+        var settingService = scope.ServiceProvider.GetRequiredService<AppSettingService>();
+        var identityConfig = scope.ServiceProvider.GetRequiredService<IdentityConfig>();
+        
+        var useKeycloakAsIdpProxy = await settingService.GetSettingAsync(Constants.Identity.UseKeycloakAsIdpProxyKey, false);
+        
+        // Update the identity config with the value from the database
+        identityConfig.UseKeycloakAsIdpProxy = useKeycloakAsIdpProxy;
     }
 }

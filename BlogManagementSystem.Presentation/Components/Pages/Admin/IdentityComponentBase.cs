@@ -1,7 +1,8 @@
+using BlogManagementSystem.Application.Common;
 using BlogManagementSystem.Application.Common.Configuration;
 using BlogManagementSystem.Application.Interfaces;
+using BlogManagementSystem.Application.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 
 namespace BlogManagementSystem.Presentation.Components.Pages.Admin;
 
@@ -9,7 +10,7 @@ public abstract class IdentityComponentBase : ComponentBase
 {
     [Inject] protected IIdentityManagerFactory IdentityManagerFactory { get; set; } = null!;
     [Inject] protected IdentityConfig Config { get; set; } = null!;
-    [Inject] protected IJSRuntime JsRuntime { get; set; } = null!;
+    [Inject] protected AppSettingService AppSettingService { get; set; } = null!;
     
     protected IIdentityManager IdentityManager => IdentityManagerFactory.CurrentManager;
     protected IdentityMode CurrentMode => Config.UseKeycloakAsIdpProxy ? IdentityMode.Proxy : IdentityMode.Keycloak;
@@ -48,8 +49,8 @@ public abstract class IdentityComponentBase : ComponentBase
     {
         try
         {
-            var val = await JsRuntime.InvokeAsync<string>("localStorage.getItem", "identityMode");
-            return string.IsNullOrEmpty(val) ? IdentityMode.Keycloak : Enum.Parse<IdentityMode>(val);
+            var isProxyMode = await AppSettingService.GetSettingAsync(Constants.Identity.UseKeycloakAsIdpProxyKey, false);
+            return isProxyMode ? IdentityMode.Proxy : IdentityMode.Keycloak;
         }
         catch
         {
@@ -61,11 +62,11 @@ public abstract class IdentityComponentBase : ComponentBase
     {
         try
         {
-            await JsRuntime.InvokeVoidAsync("localStorage.setItem", "identityMode", mode);
+            await AppSettingService.SetSettingAsync(Constants.Identity.UseKeycloakAsIdpProxyKey, mode == IdentityMode.Proxy);
         }
-        catch
+        catch(Exception ex)
         {
-            // Ignore errors storing the preference
+            throw new InvalidOperationException("Failed to store preferred identity mode", ex);
         }
     }
 }
