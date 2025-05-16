@@ -5,7 +5,7 @@ namespace BlogManagementSystem.Application.Services;
 
 public class CachedAppSettingService(IAppSettingService decorated, IMemoryCache cache) : IAppSettingService
 {
-    private readonly TimeSpan _cacheDuration = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(60);
     private const string CacheKeyPrefix = "AppSetting:";
 
     /// <summary>
