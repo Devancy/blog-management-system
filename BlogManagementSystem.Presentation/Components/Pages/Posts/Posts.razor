@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using BlogManagementSystem.Application.Common.Security
 @using Microsoft.AspNetCore.Components.Authorization
+@using BlogManagementSystem.Presentation.Components.Common
 @inject PostService PostService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
@@ -16,26 +17,26 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h4" GutterBottom="true">Blog Posts</MudText>
-        
+        <PageHeader Title="Blog Posts"/>
+
         <MudGrid>
             <MudItem xs="12" Class="d-flex justify-space-between align-center">
                 <AuthorizeView Roles="Admin,Author">
                     <Authorized>
-                        <MudButton Variant="Variant.Filled" 
-                                  Color="Color.Primary" 
-                                  StartIcon="@Icons.Material.Filled.Add"
-                                  Href="/posts/create">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   Href="/posts/create">
                             Create Post
                         </MudButton>
                     </Authorized>
                 </AuthorizeView>
             </MudItem>
-            
+
             <MudItem xs="12">
                 @if (_isLoading)
                 {
-                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
+                    <LoadingIndicator/>
                 }
                 else if (_posts == null || !_posts.Any())
                 {
@@ -43,11 +44,12 @@
                 }
                 else
                 {
-                    <MudTable Items="@_filteredPosts" Hover="true" Striped="true" Filter="new Func<PostDto, bool>(FilterFunc)" Value="_selectedPost" ValueChanged="@((PostDto p) => _selectedPost = p)">
-                        <ToolBarContent>
-                            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
-                                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-3"></MudTextField>
-                        </ToolBarContent>
+                    <DataTable Items="@_filteredPosts"
+                               Loading="@_isLoading"
+                               FilterFunc="@FilterFunc"
+                               SearchStringChanged="@((string s) => _searchString = s)"
+                               NoRecordsText="No posts found."
+                               TItem="PostDto">
                         <HeaderContent>
                             <MudTh>Title</MudTh>
                             <MudTh>Author</MudTh>
@@ -76,52 +78,64 @@
                             </MudTd>
                             <MudTd DataLabel="Created">@postItem.CreatedAt.ToLocalTime().ToString("g")</MudTd>
                             <MudTd>
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" 
-                                               Href="@($"/posts/{postItem.Slug}")" />
-                                
+                                <ActionButton IsIconButton="true"
+                                              Icon="@Icons.Material.Filled.Visibility"
+                                              Color="Color.Info"
+                                              Href="@($"/posts/{postItem.Slug}")"
+                                              Title="View" />
+
                                 <AuthorizeView Roles="Admin,Author">
                                     <Authorized Context="authContext">
                                         @if (RolePermissions.CanEditPost(postItem, authContext.User))
                                         {
-                                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" 
-                                                          Href="@($"/posts/edit/{postItem.Id}")" />
+                                            <ActionButton IsIconButton="true"
+                                                          Icon="@Icons.Material.Filled.Edit"
+                                                          Color="Color.Primary"
+                                                          Href="@($"/posts/edit/{postItem.Id}")"
+                                                          Title="Edit" />
+
+                                            <ActionButton IsIconButton="true"
+                                                          Icon="@Icons.Material.Filled.Delete"
+                                                          Color="Color.Error"
+                                                          OnClick="@(() => DeletePost(postItem.Id))"
+                                                          Title="Delete" />
                                             
                                             @if (postItem.Status == PostStatus.Draft)
-                                            {
-                                                <MudIconButton Icon="@Icons.Material.Filled.Send" Color="Color.Success" 
-                                                              OnClick="@(() => SubmitPost(postItem.Id))" 
+                                            { 
+                                                <ActionButton IsIconButton="true"
+                                                              Icon="@Icons.Material.Filled.Send"
+                                                              Color="Color.Success"
+                                                              OnClick="@(() => SubmitPost(postItem.Id))"
                                                               Title="Submit for Review" />
                                             }
-                                            
-                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" 
-                                                          OnClick="@(() => DeletePost(postItem.Id))" />
                                         }
                                     </Authorized>
                                 </AuthorizeView>
-                                
+
                                 <AuthorizeView Roles="Admin,Editor">
                                     <Authorized Context="editorContext">
                                         @if (postItem.Status == PostStatus.Submitted)
                                         {
-                                            <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" 
-                                                          OnClick="@(() => ApprovePost(postItem.Id))" 
+                                            <ActionButton IsIconButton="true"
+                                                          Icon="@Icons.Material.Filled.Check"
+                                                          Color="Color.Success"
+                                                          OnClick="@(() => ApprovePost(postItem.Id))"
                                                           Title="Approve" />
                                         }
-                                        
+
                                         @if (postItem.Status == PostStatus.Approved)
                                         {
-                                            <MudIconButton Icon="@Icons.Material.Filled.Publish" Color="Color.Secondary" 
-                                                          OnClick="@(() => PublishPost(postItem.Id))" 
+                                            <ActionButton IsIconButton="true"
+                                                          Icon="@Icons.Material.Filled.Publish"
+                                                          Color="Color.Secondary"
+                                                          OnClick="@(() => PublishPost(postItem.Id))"
                                                           Title="Publish" />
                                         }
                                     </Authorized>
                                 </AuthorizeView>
                             </MudTd>
                         </RowTemplate>
-                        <PagerContent>
-                            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" />
-                        </PagerContent>
-                    </MudTable>
+                    </DataTable>
                 }
             </MudItem>
         </MudGrid>
@@ -131,22 +145,21 @@
 @code {
     private List<PostDto>? _posts;
     private List<PostDto> _filteredPosts = [];
-    private PostDto _selectedPost = new();
     private bool _isLoading = true;
     private string _searchString = "";
-    
+
     protected override async Task OnInitializedAsync()
     {
         await LoadPostsAsync();
     }
-    
+
     private async Task LoadPostsAsync()
     {
         try
         {
             _isLoading = true;
             _posts = await PostService.GetAllPostDtosAsync(CancellationToken.None);
-            
+
             if (_posts != null)
             {
                 var authState = await AuthStateProvider.GetAuthenticationStateAsync();
@@ -163,17 +176,17 @@
             _isLoading = false;
         }
     }
-    
+
     private bool FilterFunc(PostDto post)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
             return true;
-            
+
         return post.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
                post.Content.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
                post.AuthorName.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
     }
-    
+
     private Color GetStatusColor(PostStatus status) => status switch
     {
         PostStatus.Draft => Color.Default,
@@ -182,7 +195,7 @@
         PostStatus.Published => Color.Primary,
         _ => Color.Default
     };
-    
+
     private async Task SubmitPost(Guid id)
     {
         try
@@ -196,7 +209,7 @@
             Snackbar.Add($"Error submitting post: {ex.Message}", Severity.Error);
         }
     }
-    
+
     private async Task ApprovePost(Guid id)
     {
         try
@@ -210,7 +223,7 @@
             Snackbar.Add($"Error approving post: {ex.Message}", Severity.Error);
         }
     }
-    
+
     private async Task PublishPost(Guid id)
     {
         try
@@ -224,14 +237,14 @@
             Snackbar.Add($"Error publishing post: {ex.Message}", Severity.Error);
         }
     }
-    
+
     private async Task DeletePost(Guid id)
     {
         bool? result = await DialogService.ShowMessageBox(
             "Delete Post",
             "Are you sure you want to delete this post?",
             yesText: "Delete", cancelText: "Cancel");
-            
+
         if (result == true)
         {
             try
@@ -246,4 +259,5 @@
             }
         }
     }
+
 } 

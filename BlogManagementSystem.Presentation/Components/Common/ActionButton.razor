@@ -1,0 +1,34 @@
+@if (IsIconButton)
+{
+    <MudIconButton Icon="@Icon" 
+                  Color="@Color" 
+                  Size="@Size"
+                  Href="@Href"
+                  OnClick="@OnClick"
+                  Title="@Title" />
+}
+else
+{
+    <MudButton Variant="@Variant"
+              Color="@Color"
+              StartIcon="@Icon"
+              Size="@Size"
+              Href="@Href"
+              OnClick="@OnClick"
+              Class="@Class">
+        @ChildContent
+    </MudButton>
+}
+
+@code {
+    [Parameter] public bool IsIconButton { get; set; } = false;
+    [Parameter] public string Icon { get; set; } = string.Empty;
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+    [Parameter] public Size Size { get; set; } = Size.Medium;
+    [Parameter] public Variant Variant { get; set; } = Variant.Filled;
+    [Parameter] public string Href { get; set; } = string.Empty;
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public RenderFragment ChildContent { get; set; }
+}

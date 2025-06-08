@@ -4,6 +4,7 @@
 @using BlogManagementSystem.Application.Services
 @using BlogManagementSystem.Application.DTOs
 @using Microsoft.AspNetCore.Authorization
+@using BlogManagementSystem.Presentation.Components.Common
 @inject PostService PostService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
@@ -14,13 +15,13 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h4" GutterBottom="true">Approved Posts Ready for Publishing</MudText>
-        
+        <PageHeader Title="Approved Posts Ready for Publishing"/>
+
         <MudGrid>
             <MudItem xs="12">
                 @if (_isLoading)
                 {
-                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
+                    <LoadingIndicator/>
                 }
                 else if (_posts.Count == 0)
                 {
@@ -28,11 +29,12 @@
                 }
                 else
                 {
-                    <MudTable Items="@_posts" Hover="true" Striped="true" Filter="new Func<PostDto, bool>(FilterFunc)" Value="_selectedPost" ValueChanged="@((PostDto p) => _selectedPost = p)">
-                        <ToolBarContent>
-                            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
-                                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-3"></MudTextField>
-                        </ToolBarContent>
+                    <DataTable Items="@_posts"
+                               Loading="@_isLoading"
+                               FilterFunc="@FilterFunc"
+                               SearchStringChanged="@((string s) => _searchString = s)"
+                               NoRecordsText="No posts found."
+                               TItem="PostDto">
                         <HeaderContent>
                             <MudTh>Title</MudTh>
                             <MudTh>Author</MudTh>
@@ -55,20 +57,24 @@
                             </MudTd>
                             <MudTd DataLabel="Approved">@(postItem.UpdatedAt?.ToLocalTime().ToString("g") ?? postItem.CreatedAt.ToLocalTime().ToString("g"))</MudTd>
                             <MudTd>
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" 
-                                               Href="@($"/posts/{postItem.Slug}")" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Publish" Color="Color.Success" 
-                                               OnClick="@(() => PublishPost(postItem.Id))" 
-                                               Title="Publish" />
-                                <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Color="Color.Warning" 
-                                               OnClick="@(() => ReturnToReview(postItem.Id))" 
-                                               Title="Return to Review" />
+                                <ActionButton IsIconButton="true"
+                                              Icon="@Icons.Material.Filled.Visibility"
+                                              Color="Color.Info"
+                                              Href="@($"/posts/{postItem.Slug}")"
+                                              Title="View" />
+                                <ActionButton IsIconButton="true"
+                                              Icon="@Icons.Material.Filled.Publish"
+                                              Color="Color.Success"
+                                              OnClick="@(() => PublishPost(postItem.Id))"
+                                              Title="Publish" />
+                                <ActionButton IsIconButton="true"
+                                              Icon="@Icons.Material.Filled.ArrowBack"
+                                              Color="Color.Warning"
+                                              OnClick="@(() => ReturnToReview(postItem.Id))"
+                                              Title="Return to Review" />
                             </MudTd>
                         </RowTemplate>
-                        <PagerContent>
-                            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" />
-                        </PagerContent>
-                    </MudTable>
+                    </DataTable>
                 }
             </MudItem>
         </MudGrid>
@@ -80,12 +86,12 @@
     private PostDto _selectedPost = new();
     private bool _isLoading = true;
     private string _searchString = "";
-    
+
     protected override async Task OnInitializedAsync()
     {
         await LoadPostsAsync();
     }
-    
+
     private async Task LoadPostsAsync()
     {
         try
@@ -104,7 +110,7 @@
             _isLoading = false;
         }
     }
-    
+
     private bool FilterFunc(PostDto post)
     {
         if (string.IsNullOrWhiteSpace(_searchString))
@@ -112,9 +118,9 @@
             
         return post.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
                post.Content.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               post.AuthorName.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+               (post.AuthorName != null && post.AuthorName.Contains(_searchString, StringComparison.OrdinalIgnoreCase));
     }
-    
+
     private async Task PublishPost(Guid id)
     {
         try
@@ -128,18 +134,18 @@
             Snackbar.Add($"Error publishing post: {ex.Message}", Severity.Error);
         }
     }
-    
+
     private async Task ReturnToReview(Guid id)
     {
         var post = _posts.FirstOrDefault(p => p.Id == id);
         if (post == null) return;
-        
+
         try
         {
             // Return post back to submitted status for review
             await PostService.UpdatePostAsync(post.Id, post.Title, post.Slug, post.Content, CancellationToken.None);
             await PostService.SubmitPostAsync(post.Id, CancellationToken.None);
-            
+
             Snackbar.Add("Post returned to review stage", Severity.Warning);
             await LoadPostsAsync();
         }
@@ -148,4 +154,5 @@
             Snackbar.Add($"Error returning post to review: {ex.Message}", Severity.Error);
         }
     }
-} 
+
+}

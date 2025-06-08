@@ -1,0 +1,16 @@
+@typeparam T
+
+<MudChip Color="@Color"
+         Size="@Size"
+         Variant="@Variant"
+         T="T">
+    @Text
+</MudChip>
+
+@code {
+    [Parameter] public Color Color { get; set; } = Color.Default;
+    [Parameter] public Size Size { get; set; } = Size.Small;
+    [Parameter] public Variant Variant { get; set; } = Variant.Text;
+    [Parameter] public string Text { get; set; } = string.Empty;
+    [Parameter] public T Value { get; set; }
+}

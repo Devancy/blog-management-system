@@ -1,28 +1,26 @@
 @using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @inject NavigationManager NavigationManager
 
 <AuthorizeView>
     <Authorized Context="authContext">
-        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" 
+        <MudMenu Icon="@Icons.Material.Outlined.PersonOutline" 
                 Color="Color.Inherit" 
-                Direction="Direction.Bottom" 
-                OffsetY="true">
+                AnchorOrigin="Origin.BottomRight" 
+                TransformOrigin="Origin.TopRight">
             <MudText Typo="Typo.body2" Class="px-4 py-2">
-                <b>@authContext.User.Identity?.Name</b>
+                Hello, @GetUserDisplayName(authContext.User)
             </MudText>
-            <MudDivider Class="mb-2" />
-            <MudMenuItem Href="/Account/Profile" Icon="@Icons.Material.Filled.Security">Profile</MudMenuItem>
-            <MudMenuItem OnClick="Logout" Icon="@Icons.Material.Filled.Logout">Logout</MudMenuItem>
+            <MudText Typo="Typo.caption" Class="px-4 pb-2 pt-0">
+                Organization: @GetUserOrganization(authContext.User)
+            </MudText>
+            <MudDivider />
+            <MudMenuItem Href="/Account/Profile" Icon="@Icons.Material.Filled.AccountCircle">Profile</MudMenuItem>
+            <MudMenuItem OnClick="@Logout" Icon="@Icons.Material.Filled.Logout">Logout</MudMenuItem>
         </MudMenu>
     </Authorized>
     <NotAuthorized>
-        <a href="/Account/Login?returnUrl=@Uri.EscapeDataString(NavigationManager.Uri)" class="ml-3">
-            <MudButton Color="Color.Primary" 
-                     Variant="Variant.Outlined" 
-                     StartIcon="@Icons.Material.Filled.Login">
-                Login
-            </MudButton>
-        </a>
+        <MudIconButton Icon="@Icons.Material.Rounded.Login" Color="Color.Inherit" OnClick="@Login" />
     </NotAuthorized>
 </AuthorizeView>
 
@@ -36,4 +34,30 @@
     {
         NavigationManager.NavigateTo("Account/Logout", true);
     }
-} 
+    
+    private string GetUserDisplayName(ClaimsPrincipal user)
+    {
+        // Try to get name from claims in order of preference
+        var name = user.FindFirstValue(ClaimTypes.Name) ?? 
+                  user.FindFirstValue("name") ??
+                  user.FindFirstValue("preferred_username") ??
+                  user.Identity?.Name;
+        
+        // If no name found, show the email
+        if (string.IsNullOrEmpty(name))
+        {
+            name = user.FindFirstValue(ClaimTypes.Email) ??
+                  user.FindFirstValue("email");
+        }
+        
+        // If still no identifier found, return User as fallback
+        return string.IsNullOrEmpty(name) ? "User" : name;
+    }
+    
+    private string GetUserOrganization(ClaimsPrincipal user)
+    {
+        var name = user.FindFirstValue("organization");
+        
+        return string.IsNullOrEmpty(name) ? "N/A" : name;
+    }
+}

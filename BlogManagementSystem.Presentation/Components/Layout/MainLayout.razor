@@ -1,8 +1,5 @@
 ﻿@inherits LayoutComponentBase
-@using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
-@inject NavigationManager NavigationManager
-@inject AuthenticationStateProvider AuthStateProvider
+@using BlogManagementSystem.Presentation.Components.Shared
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -15,24 +12,7 @@
         <MudSpacer />
 
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
-        <AuthorizeView>
-            <Authorized>
-                <MudMenu Icon="@Icons.Material.Outlined.PersonOutline" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
-                    <MudText Typo="Typo.body2" Class="px-4 py-2">
-                        Hello, @GetUserDisplayName(context.User)
-                    </MudText>
-                    <MudText Typo="Typo.caption" Class="px-4 pb-2 pt-0">
-                        Organization: @GetUserOrganization(context.User)
-                    </MudText>
-                    <MudDivider />
-                    <MudMenuItem Href="/Account/Profile" Icon="@Icons.Material.Filled.AccountCircle">Profile</MudMenuItem>
-                    <MudMenuItem OnClick="@Logout" Icon="@Icons.Material.Filled.Logout">Logout</MudMenuItem>
-                </MudMenu>
-            </Authorized>
-            <NotAuthorized>
-                <MudIconButton Icon="@Icons.Material.Rounded.Login" Color="Color.Inherit" OnClick="@Login" />
-            </NotAuthorized>
-        </AuthorizeView>
+        <LoginDisplay />
     </MudAppBar>
     <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
@@ -41,7 +21,6 @@
         @Body
     </MudMainContent>
 </MudLayout>
-
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -58,7 +37,7 @@
     {
         base.OnInitialized();
 
-        _theme = new()
+        _theme = new MudTheme
         {
             PaletteLight = _lightPalette,
             PaletteDark = _darkPalette,
@@ -74,44 +53,6 @@
     private void DarkModeToggle()
     {
         _isDarkMode = !_isDarkMode;
-    }
-    
-    private void Login()
-    {
-        NavigationManager.NavigateTo("/Account/Login", true);
-    }
-    
-    private void Logout()
-    {
-        NavigationManager.NavigateTo("/Account/Logout", true);
-    }
-    
-    private string GetUserDisplayName(ClaimsPrincipal user)
-    {
-        // Try to get name from claims in order of preference
-        var name = user.FindFirstValue(ClaimTypes.Name) ?? 
-                  user.FindFirstValue("name") ??
-                  user.FindFirstValue("preferred_username") ??
-                  user.Identity?.Name;
-        
-        // If no name found, show the email
-        if (string.IsNullOrEmpty(name))
-        {
-            name = user.FindFirstValue(ClaimTypes.Email) ??
-                  user.FindFirstValue("email");
-        }
-        
-        // If still no identifier found, return User as fallback
-        return string.IsNullOrEmpty(name) ? "User" : name;
-    }
-    
-    private string GetUserOrganization(ClaimsPrincipal user)
-    {
-        // Try to get name from claims in order of preference
-        var name = user.FindFirstValue("organization");
-        
-        // If still no identifier found, return User as fallback
-        return string.IsNullOrEmpty(name) ? "N/A" : name;
     }
 
     private readonly PaletteLight _lightPalette = new()

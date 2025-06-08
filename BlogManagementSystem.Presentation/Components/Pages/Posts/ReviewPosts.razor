@@ -4,6 +4,7 @@
 @using BlogManagementSystem.Application.Services
 @using BlogManagementSystem.Application.DTOs
 @using Microsoft.AspNetCore.Authorization
+@using BlogManagementSystem.Presentation.Components.Common
 @inject PostService PostService
 @inject ISnackbar Snackbar
 @attribute [Authorize(Roles = $"{RolePermissions.AdminRole},{RolePermissions.EditorRole}")]
@@ -13,25 +14,25 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudPaper Class="pa-4">
-        <MudText Typo="Typo.h4" GutterBottom="true">Review Submitted Posts</MudText>
+        <PageHeader Title="Review Submitted Posts" />
         
         <MudGrid>
             <MudItem xs="12">
                 @if (_isLoading)
                 {
-                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-7" />
-                }
-                else if (_posts.Count == 0)
+                    <LoadingIndicator />
+                }else if (_posts.Count == 0)
                 {
                     <MudAlert Severity="Severity.Info" Class="mt-3 mb-3">No posts waiting for review.</MudAlert>
                 }
                 else
                 {
-                    <MudTable Items="@_posts" Hover="true" Striped="true" Filter="new Func<PostDto, bool>(FilterFunc)" Value="_selectedPost" ValueChanged="@((PostDto p) => _selectedPost = p)">
-                        <ToolBarContent>
-                            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" 
-                                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0 mb-3"></MudTextField>
-                        </ToolBarContent>
+                    <DataTable Items="@_posts" 
+                              Loading="@_isLoading"
+                              FilterFunc="@FilterFunc"
+                              SearchStringChanged="@((string s) => _searchString = s)"
+                              NoRecordsText="No posts found."
+                              TItem="PostDto">
                         <HeaderContent>
                             <MudTh>Title</MudTh>
                             <MudTh>Author</MudTh>
@@ -54,20 +55,24 @@
                             </MudTd>
                             <MudTd DataLabel="Submitted">@(postItem.UpdatedAt?.ToLocalTime().ToString("g") ?? postItem.CreatedAt.ToLocalTime().ToString("g"))</MudTd>
                             <MudTd>
-                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" 
-                                               Href="@($"/posts/{postItem.Slug}")" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Check" Color="Color.Success" 
-                                               OnClick="@(() => ApprovePost(postItem.Id))" 
-                                               Title="Approve" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" 
-                                               OnClick="@(() => RejectPost(postItem.Id))" 
-                                               Title="Reject" />
+                                <ActionButton IsIconButton="true" 
+                                            Icon="@Icons.Material.Filled.Visibility" 
+                                            Color="Color.Info" 
+                                            Href="@($"/posts/{postItem.Slug}")"
+                                            Title="View" />
+                                <ActionButton IsIconButton="true" 
+                                            Icon="@Icons.Material.Filled.Check" 
+                                            Color="Color.Success" 
+                                            OnClick="@(() => ApprovePost(postItem.Id))"
+                                            Title="Approve" />
+                                <ActionButton IsIconButton="true" 
+                                            Icon="@Icons.Material.Filled.Cancel" 
+                                            Color="Color.Error" 
+                                            OnClick="@(() => RejectPost(postItem.Id))"
+                                            Title="Reject" />
                             </MudTd>
                         </RowTemplate>
-                        <PagerContent>
-                            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" />
-                        </PagerContent>
-                    </MudTable>
+                    </DataTable>
                 }
             </MudItem>
         </MudGrid>
@@ -111,7 +116,7 @@
             
         return post.Title.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
                post.Content.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
-               post.AuthorName.Contains(_searchString, StringComparison.OrdinalIgnoreCase);
+               (post.AuthorName != null && post.AuthorName.Contains(_searchString, StringComparison.OrdinalIgnoreCase));
     }
     
     private async Task ApprovePost(Guid id)
@@ -155,4 +160,4 @@
             Snackbar.Add($"Error rejecting post: {ex.Message}", Severity.Error);
         }
     }
-} 
+}

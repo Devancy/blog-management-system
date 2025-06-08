@@ -1,0 +1,14 @@
+<MudText Typo="@Typo" GutterBottom="true" Class="@Class">@Title</MudText>
+@if (!string.IsNullOrEmpty(Subtitle))
+{
+    <MudText Typo="Typo.body1" Class="mt-1">@Subtitle</MudText>
+}
+@ChildContent
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Subtitle { get; set; } = string.Empty;
+    [Parameter] public Typo Typo { get; set; } = Typo.h4;
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public RenderFragment ChildContent { get; set; }
+}

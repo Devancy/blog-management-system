@@ -1,0 +1,68 @@
+@typeparam TItem
+
+<MudTable Items="@Items" 
+          Dense="@Dense" 
+          Hover="@Hover" 
+          Striped="@Striped" 
+          Filter="@FilterFunc"
+          Loading="@Loading"
+          LoadingProgressColor="@LoadingProgressColor"
+          T="TItem">
+    <ToolBarContent>
+        @if (ShowSearchBox)
+        {
+            <MudTextField @bind-Value="@SearchString" 
+                        Placeholder="@SearchPlaceholder" 
+                        Adornment="Adornment.Start" 
+                        AdornmentIcon="@Icons.Material.Filled.Search" 
+                        IconSize="Size.Medium" 
+                        Class="mt-0 mb-3">
+            </MudTextField>
+        }
+        @ToolbarContent
+    </ToolBarContent>
+    <HeaderContent>
+        @HeaderContent
+    </HeaderContent>
+    <RowTemplate>
+        @RowTemplate(context)
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="@PageSizeOptions" />
+    </PagerContent>
+    <NoRecordsContent>
+        <MudAlert Severity="Severity.Info" Class="mt-3 mb-3">@NoRecordsText</MudAlert>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    [Parameter] public IEnumerable<TItem> Items { get; set; } = new List<TItem>();
+    [Parameter] public bool Dense { get; set; } = true;
+    [Parameter] public bool Hover { get; set; } = true;
+    [Parameter] public bool Striped { get; set; } = true;
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public Color LoadingProgressColor { get; set; } = Color.Primary;
+    [Parameter] public Func<TItem, bool> FilterFunc { get; set; } = _ => true;
+    [Parameter] public bool ShowSearchBox { get; set; } = true;
+    [Parameter] public string SearchPlaceholder { get; set; } = "Search";
+    [Parameter] public string NoRecordsText { get; set; } = "No records found";
+    [Parameter] public int[] PageSizeOptions { get; set; } = [10, 25, 50];
+    [Parameter] public RenderFragment ToolbarContent { get; set; }
+    [Parameter] public RenderFragment HeaderContent { get; set; }
+    [Parameter] public RenderFragment<TItem> RowTemplate { get; set; }
+    
+    [Parameter] public EventCallback<string> SearchStringChanged { get; set; }
+    
+    private string _searchString = "";
+    
+    public string SearchString 
+    { 
+        get => _searchString;
+        set
+        {
+            if (_searchString == value) return;
+            _searchString = value;
+            SearchStringChanged.InvokeAsync(value);
+        }
+    }
+}
